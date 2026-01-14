@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
+    <menu>
+        <add id="GardenLawn_TransEu::test"
+             title="Trans.eu API Test"
+             module="GardenLawn_TransEu"
+             sortOrder="60"
+             parent="Magento_Sales::sales_operation"
+             action="gardenlawn_transeu/test/index"
+             resource="GardenLawn_TransEu::test"/>
+    </menu>
+</config>
