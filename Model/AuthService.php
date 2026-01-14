@@ -7,6 +7,8 @@ use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Encryption\EncryptorInterface;
 use Psr\Log\LoggerInterface;
+use Magento\Framework\App\Config\ReinitableConfigInterface;
+use Magento\Framework\App\Cache\TypeListInterface;
 
 class AuthService
 {
@@ -28,6 +30,8 @@ class AuthService
     protected $json;
     protected $encryptor;
     protected $logger;
+    protected $reinitableConfig;
+    protected $cacheTypeList;
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -35,7 +39,9 @@ class AuthService
         Curl $curl,
         Json $json,
         EncryptorInterface $encryptor,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        ReinitableConfigInterface $reinitableConfig,
+        TypeListInterface $cacheTypeList
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->configWriter = $configWriter;
@@ -43,6 +49,8 @@ class AuthService
         $this->json = $json;
         $this->encryptor = $encryptor;
         $this->logger = $logger;
+        $this->reinitableConfig = $reinitableConfig;
+        $this->cacheTypeList = $cacheTypeList;
     }
 
     public function getAuthorizationUrl()
@@ -81,25 +89,15 @@ class AuthService
             'client_secret' => $clientSecret
         ];
 
-        // Debug logging
         $this->logger->info('Trans.eu Token Exchange Request (Callback)');
         $this->logger->info('URL: ' . $tokenUrl);
 
-        // Sanitize API Key
         $apiKey = trim($apiKey);
-        // Remove any potential invisible characters
         $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
 
-        $this->logger->info('API Key Length: ' . strlen($apiKey));
-        $this->logger->info('API Key Hex: ' . bin2hex($apiKey)); // Check for hidden chars
-
-        // Ensure headers are clean
         $this->curl->setHeaders([]);
         $this->curl->addHeader('Content-Type', 'application/x-www-form-urlencoded');
         $this->curl->addHeader('Api-key', $apiKey);
-
-        $this->logger->info('Headers set: Content-Type, Api-key');
-        $this->logger->info('Params: ' . json_encode(array_merge($params, ['client_secret' => '***'])));
 
         try {
             $this->curl->post($tokenUrl, http_build_query($params));
@@ -108,12 +106,12 @@ class AuthService
             $statusCode = $this->curl->getStatus();
 
             $this->logger->info('Response Status: ' . $statusCode);
-            $this->logger->info('Response Body: ' . $response);
 
             if ($statusCode == 200) {
                 $data = $this->json->unserialize($response);
                 $this->saveTokens($data);
             } else {
+                $this->logger->error('Response Body: ' . $response);
                 throw new \Exception('Failed to obtain access token: ' . $statusCode . ' ' . $response);
             }
         } catch (\Exception $e) {
@@ -145,11 +143,9 @@ class AuthService
 
         $this->logger->info('Trans.eu Token Refresh Request');
 
-        // Sanitize API Key
         $apiKey = trim($apiKey);
         $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
 
-        // Ensure headers are clean
         $this->curl->setHeaders([]);
         $this->curl->addHeader('Content-Type', 'application/x-www-form-urlencoded');
         $this->curl->addHeader('Api-key', $apiKey);
@@ -190,8 +186,21 @@ class AuthService
 
     protected function saveTokens($data)
     {
-        $this->configWriter->save(self::XML_PATH_ACCESS_TOKEN, $data['access_token']);
-        $this->configWriter->save(self::XML_PATH_REFRESH_TOKEN, $data['refresh_token']);
-        $this->configWriter->save(self::XML_PATH_TOKEN_EXPIRES, time() + $data['expires_in'] - 60);
+        $this->logger->info('Saving tokens to database...');
+        try {
+            $this->configWriter->save(self::XML_PATH_ACCESS_TOKEN, $data['access_token']);
+            $this->configWriter->save(self::XML_PATH_REFRESH_TOKEN, $data['refresh_token']);
+            $this->configWriter->save(self::XML_PATH_TOKEN_EXPIRES, time() + $data['expires_in'] - 60);
+
+            $this->logger->info('Tokens saved successfully.');
+
+            // Clear config cache to ensure immediate availability
+            $this->cacheTypeList->cleanType('config');
+            $this->reinitableConfig->reinit();
+            $this->logger->info('Config cache cleaned and reinitialized.');
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error saving tokens: ' . $e->getMessage());
+        }
     }
 }
