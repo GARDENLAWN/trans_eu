@@ -4,6 +4,7 @@ namespace GardenLawn\TransEu\Block\Adminhtml\Test;
 use Magento\Backend\Block\Template;
 use GardenLawn\TransEu\Model\AuthService;
 use GardenLawn\TransEu\Model\ApiService;
+use GardenLawn\TransEu\Model\Data\PricePredictionRequestFactory;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\Serialize\Serializer\Json;
@@ -15,6 +16,7 @@ class Index extends Template
     protected $scopeConfig;
     protected $curl;
     protected $json;
+    protected $requestFactory;
 
     public function __construct(
         Template\Context $context,
@@ -23,6 +25,7 @@ class Index extends Template
         ScopeConfigInterface $scopeConfig,
         Curl $curl,
         Json $json,
+        PricePredictionRequestFactory $requestFactory,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -31,6 +34,7 @@ class Index extends Template
         $this->scopeConfig = $scopeConfig;
         $this->curl = $curl;
         $this->json = $json;
+        $this->requestFactory = $requestFactory;
     }
 
     public function getConfigData()
@@ -123,74 +127,75 @@ class Index extends Template
 
         $params = $this->getFormValues();
 
-        // Construct the complex JSON payload from flat params
-        $payload = [
-            "company_id" => (int)$params['company_id'],
-            "currency" => "EUR",
-            "distance" => (float)$params['distance'],
-            "is_corporate_exchange" => false,
-            "is_private_exchange" => false,
-            "spots" => [
-                [
-                    "operations" => [["loads" => []]],
-                    "place" => [
-                        "address" => [
-                            "locality" => $params['source_city'],
-                            "postal_code" => $params['source_zip']
-                        ],
-                        "coordinates" => [
-                            "latitude" => (float)$params['source_lat'],
-                            "longitude" => (float)$params['source_lon']
-                        ],
-                        "country" => "PL"
+        /** @var \GardenLawn\TransEu\Model\Data\PricePredictionRequest $requestModel */
+        $requestModel = $this->requestFactory->create();
+
+        $requestModel->setCompanyId((int)$params['company_id']);
+        $requestModel->setUserId((int)$params['user_id']);
+        $requestModel->setDistance((float)$params['distance']);
+        $requestModel->setCurrency('EUR');
+
+        $spots = [
+            [
+                "operations" => [["loads" => []]],
+                "place" => [
+                    "address" => [
+                        "locality" => $params['source_city'],
+                        "postal_code" => $params['source_zip']
                     ],
-                    "timespans" => [
-                        "begin" => date('c', strtotime($params['source_date'] . ' 08:00:00')),
-                        "end" => date('c', strtotime($params['source_date'] . ' 16:00:00'))
+                    "coordinates" => [
+                        "latitude" => (float)$params['source_lat'],
+                        "longitude" => (float)$params['source_lon']
                     ],
-                    "type" => "loading"
+                    "country" => "PL"
                 ],
-                [
-                    "operations" => [["loads" => []]],
-                    "place" => [
-                        "address" => [
-                            "locality" => $params['dest_city'],
-                            "postal_code" => $params['dest_zip']
-                        ],
-                        "coordinates" => [
-                            "latitude" => (float)$params['dest_lat'],
-                            "longitude" => (float)$params['dest_lon']
-                        ],
-                        "country" => "PL"
-                    ],
-                    "timespans" => [
-                        "begin" => date('c', strtotime($params['dest_date'] . ' 08:00:00')),
-                        "end" => date('c', strtotime($params['dest_date'] . ' 16:00:00'))
-                    ],
-                    "type" => "unloading"
-                ]
+                "timespans" => [
+                    "begin" => date('c', strtotime($params['source_date'] . ' 08:00:00')),
+                    "end" => date('c', strtotime($params['source_date'] . ' 16:00:00'))
+                ],
+                "type" => "loading"
             ],
-            "temperature" => ["min" => "", "max" => ""],
-            "user_id" => (int)$params['user_id'],
-            "vehicle_requirements" => [
-                "capacity" => 10,
-                "gps" => true,
-                "other_requirements" => [],
-                "required_truck_bodies" => [$params['vehicle_body']],
-                "required_ways_of_loading" => [],
-                "vehicle_size_id" => "13_bus_lorry_solo",
-                "transport_type" => "ftl"
+            [
+                "operations" => [["loads" => []]],
+                "place" => [
+                    "address" => [
+                        "locality" => $params['dest_city'],
+                        "postal_code" => $params['dest_zip']
+                    ],
+                    "coordinates" => [
+                        "latitude" => (float)$params['dest_lat'],
+                        "longitude" => (float)$params['dest_lon']
+                    ],
+                    "country" => "PL"
+                ],
+                "timespans" => [
+                    "begin" => date('c', strtotime($params['dest_date'] . ' 08:00:00')),
+                    "end" => date('c', strtotime($params['dest_date'] . ' 16:00:00'))
+                ],
+                "type" => "unloading"
             ]
         ];
+        $requestModel->setSpots($spots);
+
+        $vehicleRequirements = [
+            "capacity" => 10,
+            "gps" => true,
+            "other_requirements" => [],
+            "required_truck_bodies" => [$params['vehicle_body']],
+            "required_ways_of_loading" => [],
+            "vehicle_size_id" => "13_bus_lorry_solo",
+            "transport_type" => "ftl"
+        ];
+        $requestModel->setVehicleRequirements($vehicleRequirements);
 
         try {
-            $response = $this->apiService->predictPrice($payload);
+            $response = $this->apiService->predictPrice($requestModel);
 
             return [
                 'success' => true,
                 'status' => 200,
                 'response' => $response,
-                'request_payload' => $payload // Return constructed payload for debug
+                'request_payload' => $requestModel->toArray()
             ];
 
         } catch (\Exception $e) {
@@ -198,7 +203,7 @@ class Index extends Template
                 'success' => false,
                 'status' => 'Error',
                 'message' => $e->getMessage(),
-                'request_payload' => $payload
+                'request_payload' => $requestModel->toArray()
             ];
         }
     }

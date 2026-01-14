@@ -5,6 +5,7 @@ use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\Serialize\Serializer\Json;
 use Psr\Log\LoggerInterface;
 use GardenLawn\TransEu\Model\AuthService;
+use GardenLawn\TransEu\Api\Data\PricePredictionRequestInterface;
 
 class ApiService
 {
@@ -44,14 +45,6 @@ class ApiService
             throw new \Exception('No access token available. Please authorize the module.');
         }
 
-        // Base URL is usually https://api-platform.trans.eu, but we can use the one from config or hardcode the platform base
-        // Using the one from AuthService config logic would be best, but for now let's assume the platform URL.
-        // The config 'api_url' in AuthService is used for auth token (https://api.platform.trans.eu).
-        // The price prediction is on https://api-platform.trans.eu (slightly different subdomain often, or same).
-        // Let's use the base from config if possible, or default to the standard platform API.
-
-        // Note: In previous steps we used https://api-platform.trans.eu for prediction
-        // and https://api.platform.trans.eu for auth.
         $baseUrl = 'https://api-platform.trans.eu';
         $url = $baseUrl . $endpoint;
 
@@ -74,7 +67,6 @@ class ApiService
                 case 'PUT':
                     $this->curl->put($url, $this->json->serialize($data));
                     break;
-                // Add others as needed
             }
 
             $responseBody = $this->curl->getBody();
@@ -85,8 +77,6 @@ class ApiService
             if ($statusCode >= 200 && $statusCode < 300) {
                 return $this->json->unserialize($responseBody);
             } elseif ($statusCode == 401) {
-                // Token might be expired, try to refresh once?
-                // For now, let's just throw exception, but in robust app we would retry.
                 throw new \Exception('Unauthorized (401). Token might be expired.');
             } else {
                 throw new \Exception("API Error ($statusCode): " . $responseBody);
@@ -101,12 +91,12 @@ class ApiService
     /**
      * Get price prediction
      *
-     * @param array $payload
+     * @param PricePredictionRequestInterface $request
      * @return array
      * @throws \Exception
      */
-    public function predictPrice(array $payload)
+    public function predictPrice(PricePredictionRequestInterface $request)
     {
-        return $this->makeRequest('POST', self::ENDPOINT_PRICE_PREDICTION, $payload);
+        return $this->makeRequest('POST', self::ENDPOINT_PRICE_PREDICTION, $request->toArray());
     }
 }
