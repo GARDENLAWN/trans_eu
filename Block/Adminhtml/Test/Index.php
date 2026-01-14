@@ -125,6 +125,19 @@ class Index extends Template
             return null;
         }
 
+        $action = $this->getRequest()->getParam('action');
+
+        if ($action == 'freights_list') {
+            return $this->getFreightsListResult();
+        } elseif ($action == 'price_prediction') {
+            return $this->getPricePredictionResult();
+        }
+
+        return null;
+    }
+
+    protected function getPricePredictionResult()
+    {
         $params = $this->getFormValues();
 
         /** @var \GardenLawn\TransEu\Model\Data\PricePredictionRequest $requestModel */
@@ -192,6 +205,7 @@ class Index extends Template
             $response = $this->apiService->predictPrice($requestModel);
 
             return [
+                'type' => 'price_prediction',
                 'success' => true,
                 'status' => 200,
                 'response' => $response,
@@ -200,10 +214,36 @@ class Index extends Template
 
         } catch (\Exception $e) {
             return [
+                'type' => 'price_prediction',
                 'success' => false,
                 'status' => 'Error',
                 'message' => $e->getMessage(),
                 'request_payload' => $requestModel->toArray()
+            ];
+        }
+    }
+
+    protected function getFreightsListResult()
+    {
+        try {
+            // Example filters (can be expanded with form inputs later)
+            $filters = [];
+            // $filters = ['status' => 'active'];
+
+            $response = $this->apiService->getFreightsList($filters);
+
+            return [
+                'type' => 'freights_list',
+                'success' => true,
+                'status' => 200,
+                'response' => $response
+            ];
+        } catch (\Exception $e) {
+            return [
+                'type' => 'freights_list',
+                'success' => false,
+                'status' => 'Error',
+                'message' => $e->getMessage()
             ];
         }
     }

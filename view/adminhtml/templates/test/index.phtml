@@ -167,8 +167,11 @@ $formData = $block->getFormValues();
         </div>
     </fieldset>
 
-    <!-- API Endpoint Test Form -->
     <?php if ($testResult['success']): ?>
+
+    <?php $apiResult = $block->getApiResult(); ?>
+
+    <!-- API Endpoint Test Form: Price Prediction -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_api_test">
         <legend class="admin__legend legend">
             <span>API Endpoint Test (Price Prediction)</span>
@@ -177,6 +180,7 @@ $formData = $block->getFormValues();
 
         <form action="<?= $block->getUrl('*/*/*') ?>" method="post" id="api_test_form">
             <?= $block->getBlockHtml('formkey') ?>
+            <input type="hidden" name="action" value="price_prediction" />
 
             <div class="admin__field">
                 <div class="admin__field-control" style="width: 100%; display: flex; gap: 20px;">
@@ -289,7 +293,7 @@ $formData = $block->getFormValues();
             <div class="admin__field" style="margin-top: 20px;">
                 <div class="admin__field-control">
                     <button type="submit" class="action-default scalable primary">
-                        <span>Send Request</span>
+                        <span>Get Price Prediction</span>
                     </button>
                 </div>
             </div>
@@ -297,8 +301,7 @@ $formData = $block->getFormValues();
 
         <br>
 
-        <?php $apiResult = $block->getApiResult(); ?>
-        <?php if ($apiResult): ?>
+        <?php if ($apiResult && $apiResult['type'] == 'price_prediction'): ?>
             <div class="admin__field">
                 <div class="admin__field-control" style="width: 100%">
                     <?php if ($apiResult['success']): ?>
@@ -330,5 +333,56 @@ $formData = $block->getFormValues();
         <?php endif; ?>
 
     </fieldset>
+
+    <!-- API Endpoint Test: Freights List -->
+    <fieldset class="fieldset admin__fieldset" id="trans_eu_freights_list">
+        <legend class="admin__legend legend">
+            <span>API Endpoint Test (Freights List)</span>
+        </legend>
+        <br>
+
+        <form action="<?= $block->getUrl('*/*/*') ?>" method="post">
+            <?= $block->getBlockHtml('formkey') ?>
+            <input type="hidden" name="action" value="freights_list" />
+
+            <div class="admin__field">
+                <div class="admin__field-control">
+                    <button type="submit" class="action-default scalable primary">
+                        <span>Get Freights List</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <br>
+
+        <?php if ($apiResult && $apiResult['type'] == 'freights_list'): ?>
+            <div class="admin__field">
+                <div class="admin__field-control" style="width: 100%">
+                    <?php if ($apiResult['success']): ?>
+                        <div class="messages">
+                            <div class="message message-success success">
+                                <div>
+                                    <strong>API CALL SUCCESS (Status <?= $apiResult['status'] ?>)</strong><br>
+                                    <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd; max-height: 500px; overflow-y: auto;"><?= json_encode($apiResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="messages">
+                            <div class="message message-error error">
+                                <div>
+                                    <strong>API CALL FAILED (Status <?= $apiResult['status'] ?? 'Unknown' ?>)</strong><br>
+                                    <?= $block->escapeHtml($apiResult['message']) ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+    </fieldset>
+
     <?php endif; ?>
 </div>

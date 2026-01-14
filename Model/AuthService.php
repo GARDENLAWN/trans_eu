@@ -71,12 +71,24 @@ class AuthService
         return $authUrl . '/oauth2/auth?' . http_build_query($params);
     }
 
+    public function getApiKey()
+    {
+        $apiKey = $this->scopeConfig->getValue(self::XML_PATH_API_KEY);
+        if ($apiKey) {
+            $apiKey = $this->encryptor->decrypt($apiKey);
+            $apiKey = trim($apiKey);
+            $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
+            return $apiKey;
+        }
+        return null;
+    }
+
     public function handleCallback($code)
     {
         $apiUrl = $this->scopeConfig->getValue(self::XML_PATH_API_URL);
         $clientId = $this->scopeConfig->getValue(self::XML_PATH_CLIENT_ID);
         $clientSecret = $this->encryptor->decrypt($this->scopeConfig->getValue(self::XML_PATH_CLIENT_SECRET));
-        $apiKey = $this->encryptor->decrypt($this->scopeConfig->getValue(self::XML_PATH_API_KEY));
+        $apiKey = $this->getApiKey();
         $redirectUri = $this->scopeConfig->getValue(self::XML_PATH_REDIRECT_URI);
 
         $tokenUrl = $apiUrl . '/ext/auth-api/accounts/token';
@@ -91,9 +103,6 @@ class AuthService
 
         $this->logger->info('Trans.eu Token Exchange Request (Callback)');
         $this->logger->info('URL: ' . $tokenUrl);
-
-        $apiKey = trim($apiKey);
-        $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
 
         $this->curl->setHeaders([]);
         $this->curl->addHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -130,7 +139,7 @@ class AuthService
         $apiUrl = $this->scopeConfig->getValue(self::XML_PATH_API_URL);
         $clientId = $this->scopeConfig->getValue(self::XML_PATH_CLIENT_ID);
         $clientSecret = $this->encryptor->decrypt($this->scopeConfig->getValue(self::XML_PATH_CLIENT_SECRET));
-        $apiKey = $this->encryptor->decrypt($this->scopeConfig->getValue(self::XML_PATH_API_KEY));
+        $apiKey = $this->getApiKey();
 
         $tokenUrl = $apiUrl . '/ext/auth-api/accounts/token';
 
@@ -142,9 +151,6 @@ class AuthService
         ];
 
         $this->logger->info('Trans.eu Token Refresh Request');
-
-        $apiKey = trim($apiKey);
-        $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
 
         $this->curl->setHeaders([]);
         $this->curl->addHeader('Content-Type', 'application/x-www-form-urlencoded');
