@@ -3,22 +3,34 @@ namespace GardenLawn\TransEu\Block\Adminhtml\Test;
 
 use Magento\Backend\Block\Template;
 use GardenLawn\TransEu\Model\AuthService;
+use GardenLawn\TransEu\Model\ApiService;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\Serialize\Serializer\Json;
 
 class Index extends Template
 {
     protected $authService;
+    protected $apiService;
     protected $scopeConfig;
+    protected $curl;
+    protected $json;
 
     public function __construct(
         Template\Context $context,
         AuthService $authService,
+        ApiService $apiService,
         ScopeConfigInterface $scopeConfig,
+        Curl $curl,
+        Json $json,
         array $data = []
     ) {
         parent::__construct($context, $data);
         $this->authService = $authService;
+        $this->apiService = $apiService;
         $this->scopeConfig = $scopeConfig;
+        $this->curl = $curl;
+        $this->json = $json;
     }
 
     public function getConfigData()
@@ -67,6 +79,126 @@ class Index extends Template
                 'success' => false,
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
+            ];
+        }
+    }
+
+    /**
+     * Get form values (defaults or from POST)
+     */
+    public function getFormValues()
+    {
+        $request = $this->getRequest();
+
+        return [
+            'company_id' => $request->getParam('company_id', '1242549'),
+            'user_id' => $request->getParam('user_id', '1903733'),
+            'distance' => $request->getParam('distance', '458245.5'),
+
+            'source_city' => $request->getParam('source_city', 'Szczecinek'),
+            'source_zip' => $request->getParam('source_zip', '78-400'),
+            'source_lat' => $request->getParam('source_lat', '53.708021'),
+            'source_lon' => $request->getParam('source_lon', '16.6943922'),
+            'source_date' => $request->getParam('source_date', date('Y-m-d', strtotime('+1 day'))),
+
+            'dest_city' => $request->getParam('dest_city', 'Opole'),
+            'dest_zip' => $request->getParam('dest_zip', '46-081'),
+            'dest_lat' => $request->getParam('dest_lat', '50.75644296'),
+            'dest_lon' => $request->getParam('dest_lon', '17.879288038'),
+            'dest_date' => $request->getParam('dest_date', date('Y-m-d', strtotime('+2 days'))),
+
+            'vehicle_body' => $request->getParam('vehicle_body', '9_curtainsider')
+        ];
+    }
+
+    /**
+     * Execute the API call if form was submitted
+     * @return array|null
+     */
+    public function getApiResult()
+    {
+        if (!$this->getRequest()->isPost()) {
+            return null;
+        }
+
+        $params = $this->getFormValues();
+
+        // Construct the complex JSON payload from flat params
+        $payload = [
+            "company_id" => (int)$params['company_id'],
+            "currency" => "EUR",
+            "distance" => (float)$params['distance'],
+            "is_corporate_exchange" => false,
+            "is_private_exchange" => false,
+            "spots" => [
+                [
+                    "operations" => [["loads" => []]],
+                    "place" => [
+                        "address" => [
+                            "locality" => $params['source_city'],
+                            "postal_code" => $params['source_zip']
+                        ],
+                        "coordinates" => [
+                            "latitude" => (float)$params['source_lat'],
+                            "longitude" => (float)$params['source_lon']
+                        ],
+                        "country" => "PL"
+                    ],
+                    "timespans" => [
+                        "begin" => date('c', strtotime($params['source_date'] . ' 08:00:00')),
+                        "end" => date('c', strtotime($params['source_date'] . ' 16:00:00'))
+                    ],
+                    "type" => "loading"
+                ],
+                [
+                    "operations" => [["loads" => []]],
+                    "place" => [
+                        "address" => [
+                            "locality" => $params['dest_city'],
+                            "postal_code" => $params['dest_zip']
+                        ],
+                        "coordinates" => [
+                            "latitude" => (float)$params['dest_lat'],
+                            "longitude" => (float)$params['dest_lon']
+                        ],
+                        "country" => "PL"
+                    ],
+                    "timespans" => [
+                        "begin" => date('c', strtotime($params['dest_date'] . ' 08:00:00')),
+                        "end" => date('c', strtotime($params['dest_date'] . ' 16:00:00'))
+                    ],
+                    "type" => "unloading"
+                ]
+            ],
+            "temperature" => ["min" => "", "max" => ""],
+            "user_id" => (int)$params['user_id'],
+            "vehicle_requirements" => [
+                "capacity" => 10,
+                "gps" => true,
+                "other_requirements" => [],
+                "required_truck_bodies" => [$params['vehicle_body']],
+                "required_ways_of_loading" => [],
+                "vehicle_size_id" => "13_bus_lorry_solo",
+                "transport_type" => "ftl"
+            ]
+        ];
+
+        try {
+            $response = $this->apiService->predictPrice($payload);
+
+            return [
+                'success' => true,
+                'status' => 200,
+                'response' => $response,
+                'request_payload' => $payload // Return constructed payload for debug
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'status' => 'Error',
+                'message' => $e->getMessage(),
+                'request_payload' => $payload
             ];
         }
     }

@@ -1,13 +1,14 @@
 <?php
 /** @var \GardenLawn\TransEu\Block\Adminhtml\Test\Index $block */
+$formData = $block->getFormValues();
 ?>
 <div class="page-main-actions">
     <div class="page-actions-placeholder"></div>
     <div class="page-actions" data-ui-id="page-actions-toolbar-content-header">
         <div class="page-actions-inner" data-title="Trans.eu API Test">
             <div class="page-actions-buttons">
-                <button id="refresh_test" title="Refresh Test" type="button" class="action-default scalable primary" onclick="location.reload();">
-                    <span>Refresh Test</span>
+                <button id="refresh_test" title="Refresh Page" type="button" class="action-default scalable" onclick="location.href=location.href;">
+                    <span>Refresh Page</span>
                 </button>
             </div>
         </div>
@@ -15,6 +16,7 @@
 </div>
 
 <div class="entry-edit form-inline">
+    <!-- Configuration Check -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_config">
         <legend class="admin__legend legend">
             <span>Configuration Check</span>
@@ -62,6 +64,7 @@
         </div>
     </fieldset>
 
+    <!-- Stored Tokens -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_tokens">
         <legend class="admin__legend legend">
             <span>Stored Tokens</span>
@@ -123,6 +126,7 @@
         </div>
     </fieldset>
 
+    <!-- Live Token Test -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_test_process">
         <legend class="admin__legend legend">
             <span>Live Token Retrieval Test</span>
@@ -162,4 +166,169 @@
             </div>
         </div>
     </fieldset>
+
+    <!-- API Endpoint Test Form -->
+    <?php if ($testResult['success']): ?>
+    <fieldset class="fieldset admin__fieldset" id="trans_eu_api_test">
+        <legend class="admin__legend legend">
+            <span>API Endpoint Test (Price Prediction)</span>
+        </legend>
+        <br>
+
+        <form action="<?= $block->getUrl('*/*/*') ?>" method="post" id="api_test_form">
+            <?= $block->getBlockHtml('formkey') ?>
+
+            <div class="admin__field">
+                <div class="admin__field-control" style="width: 100%; display: flex; gap: 20px;">
+
+                    <!-- General Info -->
+                    <div style="flex: 1;">
+                        <h3>General Info</h3>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Company ID</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="company_id" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['company_id']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">User ID</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="user_id" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['user_id']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Distance (m)</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="distance" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['distance']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Vehicle Body</label>
+                            <div class="admin__field-control">
+                                <select name="vehicle_body" class="admin__control-select">
+                                    <option value="9_curtainsider" <?= $formData['vehicle_body'] == '9_curtainsider' ? 'selected' : '' ?>>Curtainsider</option>
+                                    <option value="8_standard_tent" <?= $formData['vehicle_body'] == '8_standard_tent' ? 'selected' : '' ?>>Standard Tent</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Source -->
+                    <div style="flex: 1;">
+                        <h3>Loading (Source)</h3>
+                        <div class="admin__field">
+                            <label class="admin__field-label">City</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="source_city" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_city']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Zip Code</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="source_zip" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_zip']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Latitude</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="source_lat" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_lat']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Longitude</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="source_lon" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_lon']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Date</label>
+                            <div class="admin__field-control">
+                                <input type="date" name="source_date" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_date']) ?>" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Destination -->
+                    <div style="flex: 1;">
+                        <h3>Unloading (Destination)</h3>
+                        <div class="admin__field">
+                            <label class="admin__field-label">City</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="dest_city" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_city']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Zip Code</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="dest_zip" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_zip']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Latitude</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="dest_lat" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_lat']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Longitude</label>
+                            <div class="admin__field-control">
+                                <input type="text" name="dest_lon" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_lon']) ?>" />
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Date</label>
+                            <div class="admin__field-control">
+                                <input type="date" name="dest_date" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_date']) ?>" />
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="admin__field" style="margin-top: 20px;">
+                <div class="admin__field-control">
+                    <button type="submit" class="action-default scalable primary">
+                        <span>Send Request</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <br>
+
+        <?php $apiResult = $block->getApiResult(); ?>
+        <?php if ($apiResult): ?>
+            <div class="admin__field">
+                <div class="admin__field-control" style="width: 100%">
+                    <?php if ($apiResult['success']): ?>
+                        <div class="messages">
+                            <div class="message message-success success">
+                                <div>
+                                    <strong>API CALL SUCCESS (Status <?= $apiResult['status'] ?>)</strong><br>
+                                    <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd;"><?= json_encode($apiResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="messages">
+                            <div class="message message-error error">
+                                <div>
+                                    <strong>API CALL FAILED (Status <?= $apiResult['status'] ?? 'Unknown' ?>)</strong><br>
+                                    <?= $block->escapeHtml($apiResult['message']) ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <div style="margin-top: 20px;">
+                        <strong>Generated Payload:</strong>
+                        <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd; font-size: 11px;"><?= json_encode($apiResult['request_payload'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+    </fieldset>
+    <?php endif; ?>
 </div>
