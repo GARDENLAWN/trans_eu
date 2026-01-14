@@ -6,6 +6,7 @@ use Magento\Framework\App\Config\Storage\WriterInterface;
 use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Encryption\EncryptorInterface;
+use Psr\Log\LoggerInterface;
 
 class AuthService
 {
@@ -26,19 +27,22 @@ class AuthService
     protected $curl;
     protected $json;
     protected $encryptor;
+    protected $logger;
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         WriterInterface $configWriter,
         Curl $curl,
         Json $json,
-        EncryptorInterface $encryptor
+        EncryptorInterface $encryptor,
+        LoggerInterface $logger
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->configWriter = $configWriter;
         $this->curl = $curl;
         $this->json = $json;
         $this->encryptor = $encryptor;
+        $this->logger = $logger;
     }
 
     public function getAuthorizationUrl()
@@ -77,24 +81,44 @@ class AuthService
             'client_secret' => $clientSecret
         ];
 
+        // Debug logging
+        $this->logger->info('Trans.eu Token Exchange Request (Callback)');
+        $this->logger->info('URL: ' . $tokenUrl);
+
+        // Sanitize API Key
+        $apiKey = trim($apiKey);
+        // Remove any potential invisible characters
+        $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
+
+        $this->logger->info('API Key Length: ' . strlen($apiKey));
+        $this->logger->info('API Key Hex: ' . bin2hex($apiKey)); // Check for hidden chars
+
         // Ensure headers are clean
         $this->curl->setHeaders([]);
         $this->curl->addHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-        // Trim API Key to avoid "invalid header value" error
-        $apiKey = trim($apiKey);
         $this->curl->addHeader('Api-key', $apiKey);
 
-        $this->curl->post($tokenUrl, http_build_query($params));
+        $this->logger->info('Headers set: Content-Type, Api-key');
+        $this->logger->info('Params: ' . json_encode(array_merge($params, ['client_secret' => '***'])));
 
-        $response = $this->curl->getBody();
-        $statusCode = $this->curl->getStatus();
+        try {
+            $this->curl->post($tokenUrl, http_build_query($params));
 
-        if ($statusCode == 200) {
-            $data = $this->json->unserialize($response);
-            $this->saveTokens($data);
-        } else {
-            throw new \Exception('Failed to obtain access token: ' . $statusCode . ' ' . $response);
+            $response = $this->curl->getBody();
+            $statusCode = $this->curl->getStatus();
+
+            $this->logger->info('Response Status: ' . $statusCode);
+            $this->logger->info('Response Body: ' . $response);
+
+            if ($statusCode == 200) {
+                $data = $this->json->unserialize($response);
+                $this->saveTokens($data);
+            } else {
+                throw new \Exception('Failed to obtain access token: ' . $statusCode . ' ' . $response);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Trans.eu Token Exchange Error: ' . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -119,24 +143,35 @@ class AuthService
             'client_secret' => $clientSecret
         ];
 
+        $this->logger->info('Trans.eu Token Refresh Request');
+
+        // Sanitize API Key
+        $apiKey = trim($apiKey);
+        $apiKey = preg_replace('/[\x00-\x1F\x7F]/', '', $apiKey);
+
         // Ensure headers are clean
         $this->curl->setHeaders([]);
         $this->curl->addHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-        // Trim API Key
-        $apiKey = trim($apiKey);
         $this->curl->addHeader('Api-key', $apiKey);
 
-        $this->curl->post($tokenUrl, http_build_query($params));
+        try {
+            $this->curl->post($tokenUrl, http_build_query($params));
 
-        $response = $this->curl->getBody();
-        $statusCode = $this->curl->getStatus();
+            $response = $this->curl->getBody();
+            $statusCode = $this->curl->getStatus();
 
-        if ($statusCode == 200) {
-            $data = $this->json->unserialize($response);
-            $this->saveTokens($data);
-            return $data['access_token'];
-        } else {
+            $this->logger->info('Refresh Response Status: ' . $statusCode);
+
+            if ($statusCode == 200) {
+                $data = $this->json->unserialize($response);
+                $this->saveTokens($data);
+                return $data['access_token'];
+            } else {
+                $this->logger->error('Refresh Token Failed: ' . $response);
+                return false;
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Trans.eu Refresh Token Error: ' . $e->getMessage());
             return false;
         }
     }
