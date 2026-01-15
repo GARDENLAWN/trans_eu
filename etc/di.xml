@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="Magento\Framework\Console\CommandList">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="gardenlawn_transeu_refresh_token" xsi:type="object">GardenLawn\TransEu\Console\Command\RefreshTokenCommand</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <preference for="GardenLawn\TransEu\Api\Data\PricePredictionRequestInterface" type="GardenLawn\TransEu\Model\Data\PricePredictionRequest" />
+</config>
