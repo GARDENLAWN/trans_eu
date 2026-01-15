@@ -96,8 +96,13 @@ class PredictPrice extends Action
             if (!is_array($vehicleBodies)) {
                 $vehicleBodies = [$vehicleBodies];
             }
-            // Filter empty values
             $vehicleBodies = array_filter($vehicleBodies);
+
+            // Handle vehicle_size which MUST be a single string for this API
+            $vehicleSize = $params['vehicle_size'];
+            if (is_array($vehicleSize)) {
+                $vehicleSize = reset($vehicleSize); // Take first one
+            }
 
             $vehicleRequirements = [
                 "capacity" => (float)$params['capacity'],
@@ -105,12 +110,15 @@ class PredictPrice extends Action
                 "other_requirements" => [],
                 "required_truck_bodies" => $vehicleBodies,
                 "required_ways_of_loading" => [],
-                "vehicle_size_id" => $params['vehicle_size'],
+                "vehicle_size_id" => $vehicleSize,
                 "transport_type" => $params['freight_type'] ?? 'ftl'
             ];
             $requestModel->setVehicleRequirements($vehicleRequirements);
 
-            $requestModel->setData('length', (float)$params['total_length']);
+            // Only add length if it's > 0, otherwise it might cause issues if not needed
+            if ((float)$params['total_length'] > 0) {
+                $requestModel->setData('length', (float)$params['total_length']);
+            }
 
             $response = $this->apiService->predictPrice($requestModel, $token);
 

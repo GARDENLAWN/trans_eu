@@ -234,7 +234,7 @@ $formatExpiration = function($expiresAt) {
                                     }
                                 }
                             ?>
-                            <tr><td><?= $block->escapeHtml($label) ?></td><td><span class="<?= $statusClass ?>"><span><?= $statusLabel ?></span></span></td><td><?= $block->escapeHtml($displayValue) ?></td></tr>
+                            <tr><td><?= $block->escapeHtml($label) ?></td><td><small><?= $block->escapeHtml($path) ?></small></td><td><span class="<?= $statusClass ?>"><span><?= $statusLabel ?></span></span></td><td><?= $block->escapeHtml($displayValue) ?></td></tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -280,10 +280,66 @@ $formatExpiration = function($expiresAt) {
         </div>
     </div>
 
-    <!-- API Endpoint Test Form -->
+    <!-- Test Quote Service Logic (Full Flow) -->
+    <div class="trans-eu-section">
+        <h2>Test Quote Service Logic (Full Flow)</h2>
+        <p>This tests the full logic: Rules matching, Vehicle selection, API call, Currency conversion.</p>
+
+        <form id="quote_test_form">
+            <div class="form-grid">
+                <div class="form-column">
+                    <div class="field-row">
+                        <label>Carrier Code</label>
+                        <select name="carrier_code">
+                            <option value="direct_no_lift">Direct No Lift</option>
+                            <option value="direct_lift">Direct Lift</option>
+                            <option value="direct_forklift">Direct Forklift</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-column">
+                    <div class="field-row">
+                        <label>Quantity (m²)</label>
+                        <input type="text" name="qty_m2" value="100" />
+                    </div>
+                </div>
+                <div class="form-column">
+                    <div class="field-row">
+                        <label>Distance (km)</label>
+                        <input type="text" name="distance" value="450" />
+                    </div>
+                </div>
+                <div class="form-column">
+                    <div class="field-row">
+                        <label>Origin</label>
+                        <input type="text" name="origin" value="Szczecinek, 78-400" />
+                    </div>
+                </div>
+                <div class="form-column">
+                    <div class="field-row">
+                        <label>Destination</label>
+                        <input type="text" name="destination" value="Opole, 46-081" />
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: right; margin-top: 10px;">
+                <button type="button" class="action-primary-custom" id="test_quote_btn">
+                    <span>Test Quote Logic</span>
+                </button>
+            </div>
+        </form>
+
+        <div id="quote_result_container" style="display: none; margin-top: 15px;">
+            <div class="result-box">
+                <pre id="quote_result_pre"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Endpoint Test Form (Raw) -->
     <?php if ($testResult['success']): ?>
     <div class="trans-eu-section">
-        <h2>API Endpoint Test (Price Prediction)</h2>
+        <h2>API Endpoint Test (Raw Request)</h2>
 
         <form id="api_test_form">
             <div class="form-grid">
@@ -527,6 +583,30 @@ $formatExpiration = function($expiresAt) {
                 if (weightTons < 1) weightTons = 1;
                 $('#capacity_input').val(weightTons);
             }
+        });
+
+        // Test Quote Logic
+        $('#test_quote_btn').click(function() {
+            var form = $('#quote_test_form');
+            var resultContainer = $('#quote_result_container');
+            var resultPre = $('#quote_result_pre');
+
+            resultContainer.hide();
+
+            $.ajax({
+                url: '<?= $block->getUrl('gardenlawn_transeu/test/testQuote') ?>',
+                type: 'POST',
+                data: form.serialize() + '&form_key=' + FORM_KEY,
+                dataType: 'json',
+                success: function(response) {
+                    resultPre.text(JSON.stringify(response, null, 4));
+                    resultContainer.slideDown();
+                },
+                error: function() {
+                    resultPre.text('Connection Error');
+                    resultContainer.slideDown();
+                }
+            });
         });
 
         // Price Prediction Logic
