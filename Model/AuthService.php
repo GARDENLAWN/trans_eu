@@ -16,6 +16,7 @@ class AuthService
     const XML_PATH_CLIENT_ID = 'trans_eu/general/client_id';
     const XML_PATH_CLIENT_SECRET = 'trans_eu/general/client_secret';
     const XML_PATH_API_KEY = 'trans_eu/general/api_key';
+    const XML_PATH_SCOPES = 'trans_eu/general/scopes';
     const XML_PATH_AUTH_URL = 'trans_eu/general/auth_url';
     const XML_PATH_API_URL = 'trans_eu/general/api_url';
     const XML_PATH_REDIRECT_URI = 'trans_eu/general/redirect_uri';
@@ -58,6 +59,7 @@ class AuthService
         $authUrl = $this->scopeConfig->getValue(self::XML_PATH_AUTH_URL);
         $clientId = $this->scopeConfig->getValue(self::XML_PATH_CLIENT_ID);
         $redirectUri = $this->scopeConfig->getValue(self::XML_PATH_REDIRECT_URI);
+        $scopes = $this->scopeConfig->getValue(self::XML_PATH_SCOPES);
 
         $state = bin2hex(random_bytes(16));
 
@@ -67,6 +69,10 @@ class AuthService
             'state' => $state,
             'redirect_uri' => $redirectUri
         ];
+
+        if (!empty($scopes)) {
+            $params['scope'] = $scopes;
+        }
 
         return $authUrl . '/oauth2/auth?' . http_build_query($params);
     }

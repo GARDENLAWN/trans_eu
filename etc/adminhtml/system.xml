@@ -31,6 +31,10 @@
                     <label>TransId</label>
                     <comment>Your Trans.eu ID (e.g. 1242549-1)</comment>
                 </field>
+                <field id="scopes" translate="label" type="text" sortOrder="48" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Scopes</label>
+                    <comment>Space separated list of scopes (e.g. "freights.read offers.create"). Leave empty for default.</comment>
+                </field>
                 <field id="auth_url" translate="label" type="text" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Auth URL</label>
                 </field>

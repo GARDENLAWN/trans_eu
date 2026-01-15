@@ -46,16 +46,11 @@ class ApiService
             throw new \Exception('No access token available. Please authorize the module.');
         }
 
-        // Use the domain provided in the example
+        // Determine Base URL
         $baseUrl = 'https://api-platform.trans.eu';
-        // For freights API, documentation says https://api.platform.trans.eu
-        // Let's check if the endpoint starts with /ext/ (freights) or /app/ (prediction) to switch base URL if needed.
-        // However, usually api.platform and api-platform point to similar gateways, but let's be precise.
-
         if (strpos($endpoint, '/ext/') === 0) {
              $baseUrl = 'https://api.platform.trans.eu';
         }
-
         $url = $baseUrl . $endpoint;
 
         // Add query params for GET
@@ -69,10 +64,13 @@ class ApiService
             'Accept' => 'application/json'
         ]);
 
-        // Freights API requires Api-key header as well
-        $apiKey = $this->authService->getApiKey(); // We need to expose this or get it from config
-        if ($apiKey) {
-             $this->curl->addHeader('Api-key', $apiKey);
+        // Add Api-key ONLY for /ext/ endpoints (Partner API)
+        // Internal /app/ endpoints usually don't like it or don't need it with user tokens
+        if (strpos($endpoint, '/ext/') === 0) {
+            $apiKey = $this->authService->getApiKey();
+            if ($apiKey) {
+                 $this->curl->addHeader('Api-key', $apiKey);
+            }
         }
 
         $this->logger->info("Trans.eu API Request [$method]: $url");
@@ -99,28 +97,31 @@ class ApiService
                 return $this->json->unserialize($responseBody);
             } elseif ($statusCode == 401) {
                 $this->logger->error("Unauthorized (401). Response: " . $responseBody);
-                // Try to force refresh token once
+
+                // Retry logic
                 $newToken = $this->authService->refreshToken();
                 if ($newToken && $newToken !== $token) {
                     $this->logger->info("Token refreshed, retrying request...");
-                    // Retry with new token
+
                     $this->curl->setHeaders([
                         'Authorization' => 'Bearer ' . $newToken,
                         'Content-Type' => 'application/json',
                         'Accept' => 'application/json'
                     ]);
-                    if ($apiKey) {
-                        $this->curl->addHeader('Api-key', $apiKey);
+
+                    if (strpos($endpoint, '/ext/') === 0) {
+                        $apiKey = $this->authService->getApiKey();
+                        if ($apiKey) {
+                             $this->curl->addHeader('Api-key', $apiKey);
+                        }
                     }
 
-                    // Re-send request
                     if (strtoupper($method) == 'POST') {
                          $this->curl->post($url, $this->json->serialize($data));
                     } elseif (strtoupper($method) == 'GET') {
                         $this->curl->get($url);
                     }
 
-                    // Check response again
                     $responseBody = $this->curl->getBody();
                     $statusCode = $this->curl->getStatus();
                     if ($statusCode >= 200 && $statusCode < 300) {
