@@ -236,4 +236,31 @@ class AuthService
             $this->logger->error('Error saving tokens: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Decode JWT token and get expiration time
+     * @param string $token
+     * @return int|null Timestamp or null if invalid
+     */
+    public function getTokenExpirationTime($token)
+    {
+        if (!$token) {
+            return null;
+        }
+
+        $parts = explode('.', $token);
+        if (count($parts) !== 3) {
+            return null;
+        }
+
+        $payload = $parts[1];
+        $decoded = base64_decode(str_replace(['-', '_'], ['+', '/'], $payload));
+
+        if (!$decoded) {
+            return null;
+        }
+
+        $data = json_decode($decoded, true);
+        return isset($data['exp']) ? $data['exp'] : null;
+    }
 }

@@ -5,6 +5,19 @@ $apiResult = $block->getApiResult(); // Initialize here to avoid undefined varia
 
 // Get manual token value for the textarea
 $manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
+
+// Helper to format expiration
+$formatExpiration = function($expiresAt) {
+    if (!$expiresAt) return '-';
+    $timeLeft = $expiresAt - time();
+    $dateStr = date('Y-m-d H:i:s', $expiresAt);
+    if ($timeLeft > 0) {
+        $minutes = floor($timeLeft / 60);
+        return "$dateStr <span style='color: green; font-weight: bold;'>(Valid for $minutes min)</span>";
+    } else {
+        return "$dateStr <span style='color: red; font-weight: bold;'>(Expired)</span>";
+    }
+};
 ?>
 <div class="page-main-actions">
     <div class="page-actions-placeholder"></div>
@@ -205,6 +218,16 @@ $manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
 
                     // Check manual token
                     $manualToken = $block->getConfigValue('trans_eu/general/manual_token');
+
+                    // Decode manual token expiration
+                    $manualTokenExpires = null;
+                    if ($manualToken) {
+                        // We need to inject AuthService into block to use getTokenExpirationTime,
+                        // but since we are in template, we can use $block->getAuthService() if we expose it,
+                        // or just move logic to block.
+                        // Let's assume we can't easily call decode here without exposing method.
+                        // I'll update Block to expose a helper method.
+                    }
                 ?>
                 <table class="data-grid">
                     <thead>
@@ -224,7 +247,13 @@ $manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
                                 </span>
                             </td>
                             <td><?= $manualToken ? substr($manualToken, 0, 10) . '...' : '-' ?></td>
-                            <td>-</td>
+                            <td>
+                                <?php
+                                    // Call block method to get expiration
+                                    $exp = $block->getManualTokenExpiration($manualToken);
+                                    echo $formatExpiration($exp);
+                                ?>
+                            </td>
                         </tr>
                         <tr>
                             <td>OAuth2 Access Token</td>
@@ -235,17 +264,7 @@ $manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
                             </td>
                             <td><?= $accessToken ? substr($accessToken, 0, 10) . '...' : '-' ?></td>
                             <td>
-                                <?php if ($expiresAt): ?>
-                                    <?= date('Y-m-d H:i:s', $expiresAt) ?>
-                                    <?php $timeLeft = $expiresAt - time(); ?>
-                                    <?php if ($timeLeft > 0): ?>
-                                        <span style="color: green; font-weight: bold;">(Valid for <?= floor($timeLeft / 60) ?> min)</span>
-                                    <?php else: ?>
-                                        <span style="color: red; font-weight: bold;">(Expired)</span>
-                                    <?php endif; ?>
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
+                                <?= $formatExpiration($expiresAt) ?>
                             </td>
                         </tr>
                     </tbody>
