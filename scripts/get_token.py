@@ -6,6 +6,7 @@ import shutil
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -14,6 +15,7 @@ os.environ['HOME'] = '/tmp'
 
 # Persistent profile directory
 PROFILE_DIR = "/var/www/html/magento/var/trans_eu_chrome_profile"
+CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver" # Adjust if needed
 
 def get_token(username, password):
     options = Options()
@@ -35,9 +37,10 @@ def get_token(username, password):
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
 
+    service = Service(executable_path=CHROMEDRIVER_PATH)
     driver = None
     try:
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(service=service, options=options)
 
         # Stealth mode
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
@@ -116,26 +119,21 @@ def get_token(username, password):
                     try:
                         input_field = driver.find_element(By.NAME, f"otp-input-{j}")
                         input_field.send_keys(code[j])
-                        time.sleep(0.2) # Type slower
+                        time.sleep(0.2)
                     except:
                         pass
 
-                time.sleep(1) # Wait for validation
+                time.sleep(1)
 
                 try:
                     confirm_btn = driver.find_element(By.CSS_SELECTOR, "button[data-ctx='auth-submit']")
-                    # Check if enabled
                     if not confirm_btn.is_enabled():
-                        print("Confirm button is disabled! Waiting...", file=sys.stderr)
                         time.sleep(2)
-
                     confirm_btn.click()
                     print("Clicked Confirm.", file=sys.stderr)
-                except Exception as e:
-                    print(f"Could not click Confirm button: {e}", file=sys.stderr)
+                except:
+                    print("Could not find Confirm button.", file=sys.stderr)
 
-                # Wait longer for redirect after MFA
-                print("Waiting for post-MFA redirect...", file=sys.stderr)
                 time.sleep(15)
                 break
 
@@ -149,11 +147,7 @@ def get_token(username, password):
         if token:
             return token
         else:
-            # Save screenshot
-            screenshot_path = "/tmp/trans_eu_error.png"
-            driver.save_screenshot(screenshot_path)
-            print(f"Screenshot saved to {screenshot_path}", file=sys.stderr)
-
+            # Debug info
             debug_info = {
                 "url": driver.current_url,
                 "cookies": [c['name'] for c in driver.get_cookies()],
