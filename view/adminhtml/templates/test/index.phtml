@@ -3,6 +3,7 @@
 $formData = $block->getFormValues();
 $apiResult = $block->getApiResult();
 $manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
+$testResult = $block->testTokenRetrieval(); // Initialize here
 
 $formatExpiration = function($expiresAt) {
     if (!$expiresAt) return '-';
@@ -195,6 +196,49 @@ $formatExpiration = function($expiresAt) {
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </fieldset>
+
+    <!-- Live Token Test -->
+    <fieldset class="fieldset admin__fieldset" id="trans_eu_test_process">
+        <legend class="admin__legend legend">
+            <span>Live Token Retrieval Test</span>
+        </legend>
+        <br>
+        <div class="admin__field">
+            <div class="admin__field-control" style="width: 100%">
+                <?php
+                    // Use the result calculated at the top
+                ?>
+
+                <?php if ($testResult['success']): ?>
+                    <div class="messages">
+                        <div class="message message-success success">
+                            <div>
+                                <strong>SUCCESS!</strong> <?= $block->escapeHtml($testResult['message']) ?><br>
+                                Duration: <?= $testResult['duration'] ?>s<br>
+                                Token: <code><?= substr($testResult['token'], 0, 20) ?>...</code>
+                            </div>
+                        </div>
+                    </div>
+                    <?php if ($testResult['token'] !== $accessToken && !empty($accessToken) && empty($manualToken)): ?>
+                        <div class="message message-notice notice">
+                            <div>Note: Token was automatically refreshed during this call.</div>
+                        </div>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <div class="messages">
+                        <div class="message message-error error">
+                            <div>
+                                <strong>FAILED!</strong> <?= $block->escapeHtml($testResult['message']) ?>
+                                <?php if (isset($testResult['trace'])): ?>
+                                    <br><pre><?= $block->escapeHtml($testResult['trace']) ?></pre>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </fieldset>
