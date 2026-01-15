@@ -129,33 +129,33 @@ class Index extends Template
             'company_id' => $request->getParam('company_id', '1242549'),
             'user_id' => $request->getParam('user_id', '1903733'),
             'distance' => $request->getParam('distance', '458245.5'),
-            'total_length' => $request->getParam('total_length', '2'),
+            'total_length' => $request->getParam('total_length', '0.6'),
 
             'source_city' => $request->getParam('source_city', 'Szczecinek'),
             'source_zip' => $request->getParam('source_zip', '78-400'),
             'source_lat' => $request->getParam('source_lat', '53.708021'),
             'source_lon' => $request->getParam('source_lon', '16.6943922'),
-            'source_date' => $request->getParam('source_date', date('Y-m-d', strtotime('+1 day'))),
+            'source_date' => $request->getParam('source_date', '2026-01-15'),
 
             'dest_city' => $request->getParam('dest_city', 'Opole'),
             'dest_zip' => $request->getParam('dest_zip', '46-081'),
             'dest_lat' => $request->getParam('dest_lat', '50.75644296'),
             'dest_lon' => $request->getParam('dest_lon', '17.879288038'),
-            'dest_date' => $request->getParam('dest_date', date('Y-m-d', strtotime('+2 days'))),
+            'dest_date' => $request->getParam('dest_date', '2026-01-16'),
 
-            'vehicle_body' => $request->getParam('vehicle_body', '9_curtainsider'),
-            'vehicle_size' => $request->getParam('vehicle_size', '14_double_trailer_lorry_solo'),
-            'capacity' => $request->getParam('capacity', '15'),
+            'vehicle_body' => $request->getParam('vehicle_body', ['8_standard_tent', '9_curtainsider']),
+            'vehicle_size' => $request->getParam('vehicle_size', '3_lorry'),
+            'capacity' => $request->getParam('capacity', '2.5'),
             'freight_type' => $request->getParam('freight_type', 'ftl'),
             'other_requirements' => $request->getParam('other_requirements', []),
 
             // Load details
-            'qty_m2' => $request->getParam('qty_m2', '250'),
-            'load_amount' => $request->getParam('load_amount', '5'),
+            'qty_m2' => $request->getParam('qty_m2', '35'), // 1 paleta
+            'load_amount' => $request->getParam('load_amount', '1'),
             'load_length' => $request->getParam('load_length', '1.2'),
             'load_width' => $request->getParam('load_width', '0.8'),
             'load_name' => $request->getParam('load_name', 'Ładunek 1'),
-            'load_type' => $request->getParam('load_type', '2_europalette'),
+            'load_type' => $request->getParam('load_type', '38_oversized'),
         ];
     }
 
