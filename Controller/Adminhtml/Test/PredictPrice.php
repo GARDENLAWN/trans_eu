@@ -40,9 +40,27 @@ class PredictPrice extends Action
             $requestModel->setDistance((float)$params['distance']);
             $requestModel->setCurrency('EUR');
 
+            // Default load structure to match working example
+            $defaultLoad = [
+                "amount" => 5,
+                "length" => 1.2,
+                "name" => "Ładunek 1",
+                "type_of_load" => "2_europalette",
+                "width" => 0.8
+            ];
+
+            // Helper function for strict date format: 2026-01-15T13:00:00.000Z
+            $formatDate = function($dateStr) {
+                return gmdate('Y-m-d\TH:i:s.000\Z', strtotime($dateStr));
+            };
+
             $spots = [
                 [
-                    "operations" => [["loads" => []]],
+                    "operations" => [
+                        [
+                            "loads" => [$defaultLoad]
+                        ]
+                    ],
                     "place" => [
                         "address" => [
                             "locality" => $params['source_city'],
@@ -55,13 +73,17 @@ class PredictPrice extends Action
                         "country" => "PL"
                     ],
                     "timespans" => [
-                        "begin" => date('c', strtotime($params['source_date'] . ' 08:00:00')),
-                        "end" => date('c', strtotime($params['source_date'] . ' 16:00:00'))
+                        "begin" => $formatDate($params['source_date'] . ' 13:00:00'),
+                        "end" => $formatDate($params['source_date'] . ' 13:00:00')
                     ],
                     "type" => "loading"
                 ],
                 [
-                    "operations" => [["loads" => []]],
+                    "operations" => [
+                        [
+                            "loads" => [$defaultLoad]
+                        ]
+                    ],
                     "place" => [
                         "address" => [
                             "locality" => $params['dest_city'],
@@ -74,8 +96,8 @@ class PredictPrice extends Action
                         "country" => "PL"
                     ],
                     "timespans" => [
-                        "begin" => date('c', strtotime($params['dest_date'] . ' 08:00:00')),
-                        "end" => date('c', strtotime($params['dest_date'] . ' 16:00:00'))
+                        "begin" => $formatDate($params['dest_date'] . ' 07:00:00'),
+                        "end" => $formatDate($params['dest_date'] . ' 07:00:00')
                     ],
                     "type" => "unloading"
                 ]
@@ -83,15 +105,17 @@ class PredictPrice extends Action
             $requestModel->setSpots($spots);
 
             $vehicleRequirements = [
-                "capacity" => 10,
+                "capacity" => 15,
                 "gps" => true,
                 "other_requirements" => [],
                 "required_truck_bodies" => [$params['vehicle_body']],
                 "required_ways_of_loading" => [],
-                "vehicle_size_id" => "13_bus_lorry_solo",
+                "vehicle_size_id" => "14_double_trailer_lorry_solo",
                 "transport_type" => "ftl"
             ];
             $requestModel->setVehicleRequirements($vehicleRequirements);
+
+            $requestModel->setData('length', 2);
 
             // Call API Service with optional explicit token
             $response = $this->apiService->predictPrice($requestModel, $token);
