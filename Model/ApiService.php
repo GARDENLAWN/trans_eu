@@ -36,14 +36,15 @@ class ApiService
      * @param string $method GET, POST, PUT, DELETE
      * @param string $endpoint Relative path (e.g. /app/...)
      * @param array $data Payload for POST/PUT
+     * @param string|null $explicitToken Optional token to use instead of stored one
      * @return array
      * @throws \Exception
      */
-    public function makeRequest($method, $endpoint, $data = [])
+    public function makeRequest($method, $endpoint, $data = [], $explicitToken = null)
     {
-        $token = $this->authService->getAccessToken();
+        $token = $explicitToken ?: $this->authService->getAccessToken();
         if (!$token) {
-            throw new \Exception('No access token available. Please authorize the module.');
+            throw new \Exception('No access token available. Please authorize the module or provide a manual token.');
         }
 
         // Determine Base URL
@@ -65,7 +66,6 @@ class ApiService
         ]);
 
         // Add Api-key ONLY for /ext/ endpoints (Partner API)
-        // Internal /app/ endpoints usually don't like it or don't need it with user tokens
         if (strpos($endpoint, '/ext/') === 0) {
             $apiKey = $this->authService->getApiKey();
             if ($apiKey) {
@@ -98,34 +98,36 @@ class ApiService
             } elseif ($statusCode == 401) {
                 $this->logger->error("Unauthorized (401). Response: " . $responseBody);
 
-                // Retry logic
-                $newToken = $this->authService->refreshToken();
-                if ($newToken && $newToken !== $token) {
-                    $this->logger->info("Token refreshed, retrying request...");
+                // Retry logic (only if we are using stored token)
+                if (!$explicitToken) {
+                    $newToken = $this->authService->refreshToken();
+                    if ($newToken && $newToken !== $token) {
+                        $this->logger->info("Token refreshed, retrying request...");
 
-                    $this->curl->setHeaders([
-                        'Authorization' => 'Bearer ' . $newToken,
-                        'Content-Type' => 'application/json',
-                        'Accept' => 'application/json'
-                    ]);
+                        $this->curl->setHeaders([
+                            'Authorization' => 'Bearer ' . $newToken,
+                            'Content-Type' => 'application/json',
+                            'Accept' => 'application/json'
+                        ]);
 
-                    if (strpos($endpoint, '/ext/') === 0) {
-                        $apiKey = $this->authService->getApiKey();
-                        if ($apiKey) {
-                             $this->curl->addHeader('Api-key', $apiKey);
+                        if (strpos($endpoint, '/ext/') === 0) {
+                            $apiKey = $this->authService->getApiKey();
+                            if ($apiKey) {
+                                 $this->curl->addHeader('Api-key', $apiKey);
+                            }
                         }
-                    }
 
-                    if (strtoupper($method) == 'POST') {
-                         $this->curl->post($url, $this->json->serialize($data));
-                    } elseif (strtoupper($method) == 'GET') {
-                        $this->curl->get($url);
-                    }
+                        if (strtoupper($method) == 'POST') {
+                             $this->curl->post($url, $this->json->serialize($data));
+                        } elseif (strtoupper($method) == 'GET') {
+                            $this->curl->get($url);
+                        }
 
-                    $responseBody = $this->curl->getBody();
-                    $statusCode = $this->curl->getStatus();
-                    if ($statusCode >= 200 && $statusCode < 300) {
-                        return $this->json->unserialize($responseBody);
+                        $responseBody = $this->curl->getBody();
+                        $statusCode = $this->curl->getStatus();
+                        if ($statusCode >= 200 && $statusCode < 300) {
+                            return $this->json->unserialize($responseBody);
+                        }
                     }
                 }
 
@@ -144,12 +146,13 @@ class ApiService
      * Get price prediction
      *
      * @param PricePredictionRequestInterface $request
+     * @param string|null $token
      * @return array
      * @throws \Exception
      */
-    public function predictPrice(PricePredictionRequestInterface $request)
+    public function predictPrice(PricePredictionRequestInterface $request, $token = null)
     {
-        return $this->makeRequest('POST', self::ENDPOINT_PRICE_PREDICTION, $request->toArray());
+        return $this->makeRequest('POST', self::ENDPOINT_PRICE_PREDICTION, $request->toArray(), $token);
     }
 
     /**

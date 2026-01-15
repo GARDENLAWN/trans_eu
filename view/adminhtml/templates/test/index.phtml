@@ -1,6 +1,10 @@
 <?php
 /** @var \GardenLawn\TransEu\Block\Adminhtml\Test\Index $block */
 $formData = $block->getFormValues();
+$apiResult = $block->getApiResult(); // Initialize here to avoid undefined variable warning
+
+// Get manual token value for the textarea
+$manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
 ?>
 <div class="page-main-actions">
     <div class="page-actions-placeholder"></div>
@@ -42,8 +46,8 @@ $formData = $block->getFormValues();
                     <div style="flex: 1;">
                         <strong>2. Save Token</strong>
                         <div style="margin-top: 10px;">
-                            <textarea id="manual_token_input" class="admin__control-textarea" style="width: 100%; height: 350px;" placeholder="Paste Bearer token here (eyJ...)"></textarea>
-                            <button type="button" class="action-default scalable primary" style="margin-top: 10px;" onclick="saveToken()">
+                            <textarea id="manual_token_input" class="admin__control-textarea" style="width: 100%; height: 350px;" placeholder="Paste Bearer token here (eyJ...)"><?= $block->escapeHtml($manualTokenValue) ?></textarea>
+                            <button type="button" class="action-default scalable primary" style="margin-top: 10px;" id="save_token_btn">
                                 <span>Save Token</span>
                             </button>
                             <span id="save_status" style="margin-left: 10px; font-weight: bold;"></span>
@@ -55,42 +59,86 @@ $formData = $block->getFormValues();
     </fieldset>
 
     <script>
-        function saveToken() {
-            var token = document.getElementById('manual_token_input').value;
-            if (!token) {
-                alert('Please paste a token first.');
-                return;
-            }
-
-            var statusSpan = document.getElementById('save_status');
-            statusSpan.style.color = 'blue';
-            statusSpan.innerText = 'Saving...';
-
-            new Ajax.Request('<?= $block->getUrl('gardenlawn_transeu/test/saveToken') ?>', {
-                method: 'post',
-                parameters: {
-                    token: token,
-                    form_key: FORM_KEY
-                },
-                onSuccess: function(transport) {
-                    var response = transport.responseText.evalJSON();
-                    if (response.success) {
-                        statusSpan.style.color = 'green';
-                        statusSpan.innerText = 'Saved! Reloading...';
-                        setTimeout(function() {
-                            location.reload();
-                        }, 1000);
-                    } else {
-                        statusSpan.style.color = 'red';
-                        statusSpan.innerText = 'Error: ' + response.message;
-                    }
-                },
-                onFailure: function() {
-                    statusSpan.style.color = 'red';
-                    statusSpan.innerText = 'Connection error.';
+        require(['jquery'], function($) {
+            // Save Token Logic
+            $('#save_token_btn').click(function() {
+                var token = $('#manual_token_input').val();
+                if (!token) {
+                    alert('Please paste a token first.');
+                    return;
                 }
+
+                var statusSpan = $('#save_status');
+                statusSpan.css('color', 'blue').text('Saving...');
+
+                $.ajax({
+                    url: '<?= $block->getUrl('gardenlawn_transeu/test/saveToken') ?>',
+                    type: 'POST',
+                    data: {
+                        token: token,
+                        form_key: FORM_KEY
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            statusSpan.css('color', 'green').text('Saved! Reloading...');
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            statusSpan.css('color', 'red').text('Error: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        statusSpan.css('color', 'red').text('Connection error.');
+                    }
+                });
             });
-        }
+
+            // Price Prediction Logic
+            $('#predict_price_btn').click(function() {
+                var form = $('#api_test_form');
+                var resultContainer = $('#api_result_container');
+                var resultPre = $('#api_result_pre');
+                var payloadPre = $('#api_payload_pre');
+                var statusMsg = $('#api_status_msg');
+
+                // Optional: Use token directly from textarea if present, otherwise use saved one (handled by backend)
+                var manualToken = $('#manual_token_input').val();
+                var data = form.serialize();
+
+                if (manualToken) {
+                    data += '&token=' + encodeURIComponent(manualToken);
+                }
+
+                resultContainer.hide();
+                statusMsg.html('<span style="color: blue;">Sending request...</span>');
+
+                $.ajax({
+                    url: '<?= $block->getUrl('gardenlawn_transeu/test/predictPrice') ?>',
+                    type: 'POST',
+                    data: data + '&form_key=' + FORM_KEY,
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            statusMsg.html('<span style="color: green; font-weight: bold;">API CALL SUCCESS</span>');
+                            resultPre.text(JSON.stringify(response.response, null, 4));
+                        } else {
+                            statusMsg.html('<span style="color: red; font-weight: bold;">API CALL FAILED: ' + response.message + '</span>');
+                            resultPre.text('');
+                        }
+
+                        if (response.request_payload) {
+                            payloadPre.text(JSON.stringify(response.request_payload, null, 4));
+                        }
+                        resultContainer.show();
+                    },
+                    error: function() {
+                        statusMsg.html('<span style="color: red; font-weight: bold;">Connection Error</span>');
+                    }
+                });
+            });
+        });
     </script>
 
     <!-- Configuration Check -->
@@ -369,8 +417,8 @@ $formData = $block->getFormValues();
 
             <div class="admin__field" style="margin-top: 20px;">
                 <div class="admin__field-control">
-                    <button type="submit" class="action-default scalable primary">
-                        <span>Get Price Prediction</span>
+                    <button type="button" class="action-default scalable primary" id="predict_price_btn">
+                        <span>Get Price Prediction (AJAX)</span>
                     </button>
                 </div>
             </div>
@@ -378,36 +426,25 @@ $formData = $block->getFormValues();
 
         <br>
 
-        <?php if ($apiResult && $apiResult['type'] == 'price_prediction'): ?>
-            <div class="admin__field">
-                <div class="admin__field-control" style="width: 100%">
-                    <?php if ($apiResult['success']): ?>
-                        <div class="messages">
-                            <div class="message message-success success">
-                                <div>
-                                    <strong>API CALL SUCCESS (Status <?= $apiResult['status'] ?>)</strong><br>
-                                    <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd;"><?= json_encode($apiResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
-                                </div>
-                            </div>
-                        </div>
-                    <?php else: ?>
-                        <div class="messages">
-                            <div class="message message-error error">
-                                <div>
-                                    <strong>API CALL FAILED (Status <?= $apiResult['status'] ?? 'Unknown' ?>)</strong><br>
-                                    <?= $block->escapeHtml($apiResult['message']) ?>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endif; ?>
+        <div id="api_status_msg"></div>
 
-                    <div style="margin-top: 20px;">
-                        <strong>Generated Payload:</strong>
-                        <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd; font-size: 11px;"><?= json_encode($apiResult['request_payload'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
+        <div class="admin__field" id="api_result_container" style="display: none;">
+            <div class="admin__field-control" style="width: 100%">
+                <div class="messages">
+                    <div class="message message-success success">
+                        <div>
+                            <strong>Response:</strong><br>
+                            <pre id="api_result_pre" style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd;"></pre>
+                        </div>
                     </div>
                 </div>
+
+                <div style="margin-top: 20px;">
+                    <strong>Generated Payload:</strong>
+                    <pre id="api_payload_pre" style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd; font-size: 11px;"></pre>
+                </div>
             </div>
-        <?php endif; ?>
+        </div>
 
     </fieldset>
 
@@ -433,7 +470,7 @@ $formData = $block->getFormValues();
 
         <br>
 
-        <?php if ($apiResult && $apiResult['type'] == 'freights_list'): ?>
+        <?php if ($apiResult && isset($apiResult['type']) && $apiResult['type'] == 'freights_list'): ?>
             <div class="admin__field">
                 <div class="admin__field-control" style="width: 100%">
                     <?php if ($apiResult['success']): ?>
