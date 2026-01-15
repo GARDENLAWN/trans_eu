@@ -52,12 +52,13 @@ class PredictPrice extends Action
                 return gmdate('Y-m-d\TH:i:s.000\Z', strtotime($dateStr));
             };
 
+            // Dynamic load structure
             $defaultLoad = [
-                "amount" => 5,
-                "length" => 1.2,
-                "name" => "Ładunek 1",
-                "type_of_load" => "2_europalette",
-                "width" => 0.8
+                "amount" => (float)$params['load_amount'],
+                "length" => (float)$params['load_length'],
+                "name" => $params['load_name'],
+                "type_of_load" => $params['load_type'],
+                "width" => (float)$params['load_width']
             ];
 
             $spots = [
@@ -91,16 +92,17 @@ class PredictPrice extends Action
             $requestModel->setSpots($spots);
 
             $vehicleRequirements = [
-                "capacity" => 15,
+                "capacity" => (float)$params['capacity'],
                 "gps" => true,
                 "other_requirements" => [],
                 "required_truck_bodies" => [$params['vehicle_body']],
                 "required_ways_of_loading" => [],
-                "vehicle_size_id" => "14_double_trailer_lorry_solo",
+                "vehicle_size_id" => $params['vehicle_size'],
                 "transport_type" => "ftl"
             ];
             $requestModel->setVehicleRequirements($vehicleRequirements);
-            $requestModel->setData('length', 2);
+
+            $requestModel->setData('length', (float)$params['total_length']);
 
             $response = $this->apiService->predictPrice($requestModel, $token);
 
@@ -112,8 +114,6 @@ class PredictPrice extends Action
                     $baseCurrencyCode = $this->storeManager->getStore()->getBaseCurrencyCode();
 
                     if ($baseCurrencyCode == 'PLN') {
-                        // Case 1: Base is PLN, we need EUR -> PLN
-                        // We check if we have rate for PLN -> EUR
                         $currencyPln = $this->currencyFactory->create()->load('PLN');
                         $ratePlnToEur = $currencyPln->getRate('EUR');
 
@@ -125,7 +125,6 @@ class PredictPrice extends Action
                             $response['rate_eur_pln'] = round($rateEurToPln, 4);
                             $response['currency_converted'] = 'PLN';
                         } else {
-                            // Try direct EUR load if base was different or rates stored differently
                             $currencyEur = $this->currencyFactory->create()->load('EUR');
                             $rateEurToPln = $currencyEur->getRate('PLN');
 
@@ -139,7 +138,6 @@ class PredictPrice extends Action
                             }
                         }
                     } else {
-                        // Base is not PLN, try standard load
                         $currencyEur = $this->currencyFactory->create()->load('EUR');
                         $rate = $currencyEur->getRate('PLN');
                         if ($rate) {

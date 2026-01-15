@@ -1,12 +1,9 @@
 <?php
 /** @var \GardenLawn\TransEu\Block\Adminhtml\Test\Index $block */
 $formData = $block->getFormValues();
-$apiResult = $block->getApiResult(); // Initialize here to avoid undefined variable warning
-
-// Get manual token value for the textarea
+$apiResult = $block->getApiResult();
 $manualTokenValue = $block->getConfigValue('trans_eu/general/manual_token');
 
-// Helper to format expiration
 $formatExpiration = function($expiresAt) {
     if (!$expiresAt) return '-';
     $timeLeft = $expiresAt - time();
@@ -34,7 +31,7 @@ $formatExpiration = function($expiresAt) {
 
 <div class="entry-edit form-inline">
 
-    <!-- Token Management (Iframe / Manual) -->
+    <!-- Token Management -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_token_manager">
         <legend class="admin__legend legend">
             <span>Token Management (Browser Session)</span>
@@ -73,56 +70,40 @@ $formatExpiration = function($expiresAt) {
 
     <script>
         require(['jquery'], function($) {
-            // Save Token Logic
             $('#save_token_btn').click(function() {
                 var token = $('#manual_token_input').val();
                 if (!token) {
                     alert('Please paste a token first.');
                     return;
                 }
-
                 var statusSpan = $('#save_status');
                 statusSpan.css('color', 'blue').text('Saving...');
-
                 $.ajax({
                     url: '<?= $block->getUrl('gardenlawn_transeu/test/saveToken') ?>',
                     type: 'POST',
-                    data: {
-                        token: token,
-                        form_key: FORM_KEY
-                    },
+                    data: { token: token, form_key: FORM_KEY },
                     dataType: 'json',
                     success: function(response) {
                         if (response.success) {
                             statusSpan.css('color', 'green').text('Saved! Reloading...');
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1000);
+                            setTimeout(function() { location.reload(); }, 1000);
                         } else {
                             statusSpan.css('color', 'red').text('Error: ' + response.message);
                         }
                     },
-                    error: function() {
-                        statusSpan.css('color', 'red').text('Connection error.');
-                    }
+                    error: function() { statusSpan.css('color', 'red').text('Connection error.'); }
                 });
             });
 
-            // Price Prediction Logic
             $('#predict_price_btn').click(function() {
                 var form = $('#api_test_form');
                 var resultContainer = $('#api_result_container');
                 var resultPre = $('#api_result_pre');
                 var payloadPre = $('#api_payload_pre');
                 var statusMsg = $('#api_status_msg');
-
-                // Optional: Use token directly from textarea if present, otherwise use saved one (handled by backend)
                 var manualToken = $('#manual_token_input').val();
                 var data = form.serialize();
-
-                if (manualToken) {
-                    data += '&token=' + encodeURIComponent(manualToken);
-                }
+                if (manualToken) { data += '&token=' + encodeURIComponent(manualToken); }
 
                 resultContainer.hide();
                 statusMsg.html('<span style="color: blue;">Sending request...</span>');
@@ -140,15 +121,12 @@ $formatExpiration = function($expiresAt) {
                             statusMsg.html('<span style="color: red; font-weight: bold;">API CALL FAILED: ' + response.message + '</span>');
                             resultPre.text('');
                         }
-
                         if (response.request_payload) {
                             payloadPre.text(JSON.stringify(response.request_payload, null, 4));
                         }
                         resultContainer.show();
                     },
-                    error: function() {
-                        statusMsg.html('<span style="color: red; font-weight: bold;">Connection Error</span>');
-                    }
+                    error: function() { statusMsg.html('<span style="color: red; font-weight: bold;">Connection Error</span>'); }
                 });
             });
         });
@@ -156,28 +134,18 @@ $formatExpiration = function($expiresAt) {
 
     <!-- Configuration Check -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_config">
-        <legend class="admin__legend legend">
-            <span>Configuration Check</span>
-        </legend>
+        <legend class="admin__legend legend"><span>Configuration Check</span></legend>
         <br>
         <div class="admin__field">
             <div class="admin__field-control" style="width: 100%">
                 <table class="data-grid">
-                    <thead>
-                        <tr>
-                            <th class="data-grid-th">Setting</th>
-                            <th class="data-grid-th">Path</th>
-                            <th class="data-grid-th">Status</th>
-                            <th class="data-grid-th">Value (Masked)</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th class="data-grid-th">Setting</th><th class="data-grid-th">Path</th><th class="data-grid-th">Status</th><th class="data-grid-th">Value (Masked)</th></tr></thead>
                     <tbody>
                         <?php foreach ($block->getConfigData() as $path => $label): ?>
                             <?php
                                 $value = $block->getConfigValue($path);
                                 $statusClass = !empty($value) ? 'grid-severity-notice' : 'grid-severity-critical';
                                 $statusLabel = !empty($value) ? 'OK' : 'MISSING';
-
                                 $displayValue = '-';
                                 if (!empty($value)) {
                                     if (strpos($path, 'secret') !== false || strpos($path, 'api_key') !== false) {
@@ -189,12 +157,7 @@ $formatExpiration = function($expiresAt) {
                                     }
                                 }
                             ?>
-                            <tr>
-                                <td><?= $block->escapeHtml($label) ?></td>
-                                <td><small><?= $block->escapeHtml($path) ?></small></td>
-                                <td><span class="<?= $statusClass ?>"><span><?= $statusLabel ?></span></span></td>
-                                <td><?= $block->escapeHtml($displayValue) ?></td>
-                            </tr>
+                            <tr><td><?= $block->escapeHtml($label) ?></td><td><small><?= $block->escapeHtml($path) ?></small></td><td><span class="<?= $statusClass ?>"><span><?= $statusLabel ?></span></span></td><td><?= $block->escapeHtml($displayValue) ?></td></tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -204,9 +167,7 @@ $formatExpiration = function($expiresAt) {
 
     <!-- Stored Tokens -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_tokens">
-        <legend class="admin__legend legend">
-            <span>Stored Tokens</span>
-        </legend>
+        <legend class="admin__legend legend"><span>Stored Tokens</span></legend>
         <br>
         <div class="admin__field">
             <div class="admin__field-control" style="width: 100%">
@@ -215,57 +176,22 @@ $formatExpiration = function($expiresAt) {
                     $accessToken = $tokens['access_token'];
                     $refreshToken = $tokens['refresh_token'];
                     $expiresAt = $tokens['expires_at'];
-
-                    // Check manual token
                     $manualToken = $block->getConfigValue('trans_eu/general/manual_token');
-
-                    // Decode manual token expiration
-                    $manualTokenExpires = null;
-                    if ($manualToken) {
-                        // We need to inject AuthService into block to use getTokenExpirationTime,
-                        // but since we are in template, we can use $block->getAuthService() if we expose it,
-                        // or just move logic to block.
-                        // Let's assume we can't easily call decode here without exposing method.
-                        // I'll update Block to expose a helper method.
-                    }
                 ?>
                 <table class="data-grid">
-                    <thead>
-                        <tr>
-                            <th class="data-grid-th">Token Type</th>
-                            <th class="data-grid-th">Status</th>
-                            <th class="data-grid-th">Value (Masked)</th>
-                            <th class="data-grid-th">Expires</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th class="data-grid-th">Token Type</th><th class="data-grid-th">Status</th><th class="data-grid-th">Value (Masked)</th><th class="data-grid-th">Expires</th></tr></thead>
                     <tbody>
                         <tr>
                             <td><strong>Manual Token</strong> (Priority)</td>
-                            <td>
-                                <span class="<?= !empty($manualToken) ? 'grid-severity-notice' : 'grid-severity-major' ?>">
-                                    <span><?= !empty($manualToken) ? 'Present' : 'Not Set' ?></span>
-                                </span>
-                            </td>
+                            <td><span class="<?= !empty($manualToken) ? 'grid-severity-notice' : 'grid-severity-major' ?>"><span><?= !empty($manualToken) ? 'Present' : 'Not Set' ?></span></span></td>
                             <td><?= $manualToken ? substr($manualToken, 0, 10) . '...' : '-' ?></td>
-                            <td>
-                                <?php
-                                    // Call block method to get expiration
-                                    $exp = $block->getManualTokenExpiration($manualToken);
-                                    echo $formatExpiration($exp);
-                                ?>
-                            </td>
+                            <td><?php $exp = $block->getManualTokenExpiration($manualToken); echo $formatExpiration($exp); ?></td>
                         </tr>
                         <tr>
                             <td>OAuth2 Access Token</td>
-                            <td>
-                                <span class="<?= !empty($accessToken) ? 'grid-severity-notice' : 'grid-severity-critical' ?>">
-                                    <span><?= !empty($accessToken) ? 'Present' : 'Missing' ?></span>
-                                </span>
-                            </td>
+                            <td><span class="<?= !empty($accessToken) ? 'grid-severity-notice' : 'grid-severity-critical' ?>"><span><?= !empty($accessToken) ? 'Present' : 'Missing' ?></span></span></td>
                             <td><?= $accessToken ? substr($accessToken, 0, 10) . '...' : '-' ?></td>
-                            <td>
-                                <?= $formatExpiration($expiresAt) ?>
-                            </td>
+                            <td><?= $formatExpiration($expiresAt) ?></td>
                         </tr>
                     </tbody>
                 </table>
@@ -273,162 +199,61 @@ $formatExpiration = function($expiresAt) {
         </div>
     </fieldset>
 
-    <!-- Live Token Test -->
-    <fieldset class="fieldset admin__fieldset" id="trans_eu_test_process">
-        <legend class="admin__legend legend">
-            <span>Live Token Retrieval Test</span>
-        </legend>
-        <br>
-        <div class="admin__field">
-            <div class="admin__field-control" style="width: 100%">
-                <?php $testResult = $block->testTokenRetrieval(); ?>
-
-                <?php if ($testResult['success']): ?>
-                    <div class="messages">
-                        <div class="message message-success success">
-                            <div>
-                                <strong>SUCCESS!</strong> <?= $block->escapeHtml($testResult['message']) ?><br>
-                                Duration: <?= $testResult['duration'] ?>s<br>
-                                Token: <code><?= substr($testResult['token'], 0, 20) ?>...</code>
-                            </div>
-                        </div>
-                    </div>
-                    <?php if ($testResult['token'] !== $accessToken && !empty($accessToken) && empty($manualToken)): ?>
-                        <div class="message message-notice notice">
-                            <div>Note: Token was automatically refreshed during this call.</div>
-                        </div>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <div class="messages">
-                        <div class="message message-error error">
-                            <div>
-                                <strong>FAILED!</strong> <?= $block->escapeHtml($testResult['message']) ?>
-                                <?php if (isset($testResult['trace'])): ?>
-                                    <br><pre><?= $block->escapeHtml($testResult['trace']) ?></pre>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </fieldset>
-
     <!-- API Endpoint Test Form -->
     <?php if ($testResult['success']): ?>
     <fieldset class="fieldset admin__fieldset" id="trans_eu_api_test">
-        <legend class="admin__legend legend">
-            <span>API Endpoint Test (Price Prediction)</span>
-        </legend>
+        <legend class="admin__legend legend"><span>API Endpoint Test (Price Prediction)</span></legend>
         <br>
 
-        <form action="<?= $block->getUrl('*/*/*') ?>" method="post" id="api_test_form">
-            <?= $block->getBlockHtml('formkey') ?>
-            <input type="hidden" name="action" value="price_prediction" />
-
+        <form id="api_test_form">
             <div class="admin__field">
-                <div class="admin__field-control" style="width: 100%; display: flex; gap: 20px;">
+                <div class="admin__field-control" style="width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
 
                     <!-- General Info -->
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 300px;">
                         <h3>General Info</h3>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Company ID</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="company_id" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['company_id']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">User ID</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="user_id" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['user_id']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Distance (m)</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="distance" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['distance']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Vehicle Body</label>
-                            <div class="admin__field-control">
-                                <select name="vehicle_body" class="admin__control-select">
-                                    <option value="9_curtainsider" <?= $formData['vehicle_body'] == '9_curtainsider' ? 'selected' : '' ?>>Curtainsider</option>
-                                    <option value="8_standard_tent" <?= $formData['vehicle_body'] == '8_standard_tent' ? 'selected' : '' ?>>Standard Tent</option>
-                                </select>
-                            </div>
-                        </div>
+                        <div class="admin__field"><label class="admin__field-label">Company ID</label><div class="admin__field-control"><input type="text" name="company_id" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['company_id']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">User ID</label><div class="admin__field-control"><input type="text" name="user_id" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['user_id']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Distance (m)</label><div class="admin__field-control"><input type="text" name="distance" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['distance']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Total Length (m)</label><div class="admin__field-control"><input type="text" name="total_length" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['total_length']) ?>" /></div></div>
+                    </div>
+
+                    <!-- Vehicle -->
+                    <div style="flex: 1; min-width: 300px;">
+                        <h3>Vehicle Requirements</h3>
+                        <div class="admin__field"><label class="admin__field-label">Body</label><div class="admin__field-control"><input type="text" name="vehicle_body" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['vehicle_body']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Size ID</label><div class="admin__field-control"><input type="text" name="vehicle_size" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['vehicle_size']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Capacity (Tons)</label><div class="admin__field-control"><input type="text" name="capacity" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['capacity']) ?>" /></div></div>
+                    </div>
+
+                    <!-- Load Details -->
+                    <div style="flex: 1; min-width: 300px;">
+                        <h3>Load Details</h3>
+                        <div class="admin__field"><label class="admin__field-label">Name</label><div class="admin__field-control"><input type="text" name="load_name" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_name']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Type</label><div class="admin__field-control"><input type="text" name="load_type" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_type']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Amount</label><div class="admin__field-control"><input type="text" name="load_amount" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_amount']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Length (m)</label><div class="admin__field-control"><input type="text" name="load_length" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_length']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Width (m)</label><div class="admin__field-control"><input type="text" name="load_width" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_width']) ?>" /></div></div>
                     </div>
 
                     <!-- Source -->
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 300px;">
                         <h3>Loading (Source)</h3>
-                        <div class="admin__field">
-                            <label class="admin__field-label">City</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="source_city" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_city']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Zip Code</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="source_zip" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_zip']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Latitude</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="source_lat" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_lat']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Longitude</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="source_lon" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_lon']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Date</label>
-                            <div class="admin__field-control">
-                                <input type="date" name="source_date" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_date']) ?>" />
-                            </div>
-                        </div>
+                        <div class="admin__field"><label class="admin__field-label">City</label><div class="admin__field-control"><input type="text" name="source_city" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_city']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Zip Code</label><div class="admin__field-control"><input type="text" name="source_zip" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_zip']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Latitude</label><div class="admin__field-control"><input type="text" name="source_lat" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_lat']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Longitude</label><div class="admin__field-control"><input type="text" name="source_lon" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_lon']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Date</label><div class="admin__field-control"><input type="date" name="source_date" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['source_date']) ?>" /></div></div>
                     </div>
 
                     <!-- Destination -->
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 300px;">
                         <h3>Unloading (Destination)</h3>
-                        <div class="admin__field">
-                            <label class="admin__field-label">City</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="dest_city" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_city']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Zip Code</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="dest_zip" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_zip']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Latitude</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="dest_lat" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_lat']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Longitude</label>
-                            <div class="admin__field-control">
-                                <input type="text" name="dest_lon" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_lon']) ?>" />
-                            </div>
-                        </div>
-                        <div class="admin__field">
-                            <label class="admin__field-label">Date</label>
-                            <div class="admin__field-control">
-                                <input type="date" name="dest_date" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_date']) ?>" />
-                            </div>
-                        </div>
+                        <div class="admin__field"><label class="admin__field-label">City</label><div class="admin__field-control"><input type="text" name="dest_city" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_city']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Zip Code</label><div class="admin__field-control"><input type="text" name="dest_zip" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_zip']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Latitude</label><div class="admin__field-control"><input type="text" name="dest_lat" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_lat']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Longitude</label><div class="admin__field-control"><input type="text" name="dest_lon" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_lon']) ?>" /></div></div>
+                        <div class="admin__field"><label class="admin__field-label">Date</label><div class="admin__field-control"><input type="date" name="dest_date" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['dest_date']) ?>" /></div></div>
                     </div>
 
                 </div>
@@ -469,52 +294,23 @@ $formatExpiration = function($expiresAt) {
 
     <!-- API Endpoint Test: Freights List -->
     <fieldset class="fieldset admin__fieldset" id="trans_eu_freights_list">
-        <legend class="admin__legend legend">
-            <span>API Endpoint Test (Freights List)</span>
-        </legend>
+        <legend class="admin__legend legend"><span>API Endpoint Test (Freights List)</span></legend>
         <br>
-
         <form action="<?= $block->getUrl('*/*/*') ?>" method="post">
             <?= $block->getBlockHtml('formkey') ?>
             <input type="hidden" name="action" value="freights_list" />
-
-            <div class="admin__field">
-                <div class="admin__field-control">
-                    <button type="submit" class="action-default scalable primary">
-                        <span>Get Freights List</span>
-                    </button>
-                </div>
-            </div>
+            <div class="admin__field"><div class="admin__field-control"><button type="submit" class="action-default scalable primary"><span>Get Freights List</span></button></div></div>
         </form>
-
         <br>
-
         <?php if ($apiResult && isset($apiResult['type']) && $apiResult['type'] == 'freights_list'): ?>
-            <div class="admin__field">
-                <div class="admin__field-control" style="width: 100%">
-                    <?php if ($apiResult['success']): ?>
-                        <div class="messages">
-                            <div class="message message-success success">
-                                <div>
-                                    <strong>API CALL SUCCESS (Status <?= $apiResult['status'] ?>)</strong><br>
-                                    <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd; max-height: 500px; overflow-y: auto;"><?= json_encode($apiResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
-                                </div>
-                            </div>
-                        </div>
-                    <?php else: ?>
-                        <div class="messages">
-                            <div class="message message-error error">
-                                <div>
-                                    <strong>API CALL FAILED (Status <?= $apiResult['status'] ?? 'Unknown' ?>)</strong><br>
-                                    <?= $block->escapeHtml($apiResult['message']) ?>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
+            <div class="admin__field"><div class="admin__field-control" style="width: 100%">
+                <?php if ($apiResult['success']): ?>
+                    <div class="messages"><div class="message message-success success"><div><strong>API CALL SUCCESS (Status <?= $apiResult['status'] ?>)</strong><br><pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd; max-height: 500px; overflow-y: auto;"><?= json_encode($apiResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre></div></div></div>
+                <?php else: ?>
+                    <div class="messages"><div class="message message-error error"><div><strong>API CALL FAILED (Status <?= $apiResult['status'] ?? 'Unknown' ?>)</strong><br><?= $block->escapeHtml($apiResult['message']) ?></div></div></div>
+                <?php endif; ?>
+            </div></div>
         <?php endif; ?>
-
     </fieldset>
 
     <?php endif; ?>

@@ -121,7 +121,17 @@ class Index extends Template
             'dest_lon' => $request->getParam('dest_lon', '17.879288038'),
             'dest_date' => $request->getParam('dest_date', date('Y-m-d', strtotime('+2 days'))),
 
-            'vehicle_body' => $request->getParam('vehicle_body', '9_curtainsider')
+            'vehicle_body' => $request->getParam('vehicle_body', '9_curtainsider'),
+            'vehicle_size' => $request->getParam('vehicle_size', '14_double_trailer_lorry_solo'),
+            'capacity' => $request->getParam('capacity', '15'),
+
+            // Load details
+            'load_amount' => $request->getParam('load_amount', '5'),
+            'load_length' => $request->getParam('load_length', '1.2'),
+            'load_width' => $request->getParam('load_width', '0.8'),
+            'load_name' => $request->getParam('load_name', 'Ładunek 1'),
+            'load_type' => $request->getParam('load_type', '2_europalette'),
+            'total_length' => $request->getParam('total_length', '2')
         ];
     }
 
