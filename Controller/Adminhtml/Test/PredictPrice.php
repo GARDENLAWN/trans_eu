@@ -91,14 +91,22 @@ class PredictPrice extends Action
             ];
             $requestModel->setSpots($spots);
 
+            // Handle vehicle_body which can be array or string
+            $vehicleBodies = $params['vehicle_body'];
+            if (!is_array($vehicleBodies)) {
+                $vehicleBodies = [$vehicleBodies];
+            }
+            // Filter empty values
+            $vehicleBodies = array_filter($vehicleBodies);
+
             $vehicleRequirements = [
                 "capacity" => (float)$params['capacity'],
                 "gps" => true,
                 "other_requirements" => [],
-                "required_truck_bodies" => [$params['vehicle_body']],
+                "required_truck_bodies" => $vehicleBodies,
                 "required_ways_of_loading" => [],
                 "vehicle_size_id" => $params['vehicle_size'],
-                "transport_type" => "ftl"
+                "transport_type" => $params['freight_type'] ?? 'ftl'
             ];
             $requestModel->setVehicleRequirements($vehicleRequirements);
 

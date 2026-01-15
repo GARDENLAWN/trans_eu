@@ -145,6 +145,7 @@ class Index extends Template
             'freight_type' => $request->getParam('freight_type', 'ftl'),
 
             // Load details
+            'qty_m2' => $request->getParam('qty_m2', '250'), // Default 250 m2
             'load_amount' => $request->getParam('load_amount', '5'),
             'load_length' => $request->getParam('load_length', '1.2'),
             'load_width' => $request->getParam('load_width', '0.8'),
