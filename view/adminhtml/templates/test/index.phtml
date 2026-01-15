@@ -325,12 +325,16 @@ $formatExpiration = function($expiresAt) {
                         <small>Hold Ctrl/Cmd to select multiple</small>
                     </div>
                     <div class="field-row">
-                        <label>Size ID</label>
-                        <select name="vehicle_size">
+                        <label>Size ID (Multiselect)</label>
+                        <select name="vehicle_size[]" multiple size="5">
+                            <?php
+                                $selectedSizes = is_array($formData['vehicle_size']) ? $formData['vehicle_size'] : explode(',', $formData['vehicle_size']);
+                            ?>
                             <?php foreach ($block->getVehicleSizeOptions() as $option): ?>
-                                <option value="<?= $option['value'] ?>" <?= $formData['vehicle_size'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
+                                <option value="<?= $option['value'] ?>" <?= in_array($option['value'], $selectedSizes) ? 'selected' : '' ?>><?= $option['label'] ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <small>Hold Ctrl/Cmd to select multiple</small>
                     </div>
                     <div class="field-row">
                         <label>Freight Type</label>
