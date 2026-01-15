@@ -8,6 +8,10 @@ use GardenLawn\TransEu\Model\Data\PricePredictionRequestFactory;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\Serialize\Serializer\Json;
+use GardenLawn\Delivery\Model\Config\Source\VehicleBody;
+use GardenLawn\Delivery\Model\Config\Source\VehicleSize;
+use GardenLawn\Delivery\Model\Config\Source\FreightType;
+use GardenLawn\Delivery\Model\Config\Source\LoadType;
 
 class Index extends Template
 {
@@ -18,6 +22,11 @@ class Index extends Template
     protected $json;
     protected $requestFactory;
 
+    protected $vehicleBodySource;
+    protected $vehicleSizeSource;
+    protected $freightTypeSource;
+    protected $loadTypeSource;
+
     public function __construct(
         Template\Context $context,
         AuthService $authService,
@@ -26,6 +35,10 @@ class Index extends Template
         Curl $curl,
         Json $json,
         PricePredictionRequestFactory $requestFactory,
+        VehicleBody $vehicleBodySource,
+        VehicleSize $vehicleSizeSource,
+        FreightType $freightTypeSource,
+        LoadType $loadTypeSource,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -35,6 +48,10 @@ class Index extends Template
         $this->curl = $curl;
         $this->json = $json;
         $this->requestFactory = $requestFactory;
+        $this->vehicleBodySource = $vehicleBodySource;
+        $this->vehicleSizeSource = $vehicleSizeSource;
+        $this->freightTypeSource = $freightTypeSource;
+        $this->loadTypeSource = $loadTypeSource;
     }
 
     public function getConfigData()
@@ -108,6 +125,7 @@ class Index extends Template
             'company_id' => $request->getParam('company_id', '1242549'),
             'user_id' => $request->getParam('user_id', '1903733'),
             'distance' => $request->getParam('distance', '458245.5'),
+            'total_length' => $request->getParam('total_length', '2'),
 
             'source_city' => $request->getParam('source_city', 'Szczecinek'),
             'source_zip' => $request->getParam('source_zip', '78-400'),
@@ -124,6 +142,7 @@ class Index extends Template
             'vehicle_body' => $request->getParam('vehicle_body', '9_curtainsider'),
             'vehicle_size' => $request->getParam('vehicle_size', '14_double_trailer_lorry_solo'),
             'capacity' => $request->getParam('capacity', '15'),
+            'freight_type' => $request->getParam('freight_type', 'ftl'),
 
             // Load details
             'load_amount' => $request->getParam('load_amount', '5'),
@@ -131,9 +150,13 @@ class Index extends Template
             'load_width' => $request->getParam('load_width', '0.8'),
             'load_name' => $request->getParam('load_name', 'Ładunek 1'),
             'load_type' => $request->getParam('load_type', '2_europalette'),
-            'total_length' => $request->getParam('total_length', '2')
         ];
     }
+
+    public function getVehicleBodyOptions() { return $this->vehicleBodySource->toOptionArray(); }
+    public function getVehicleSizeOptions() { return $this->vehicleSizeSource->toOptionArray(); }
+    public function getFreightTypeOptions() { return $this->freightTypeSource->toOptionArray(); }
+    public function getLoadTypeOptions() { return $this->loadTypeSource->toOptionArray(); }
 
     /**
      * Execute the API call if form was submitted

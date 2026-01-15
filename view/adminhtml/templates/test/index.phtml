@@ -221,8 +221,36 @@ $formatExpiration = function($expiresAt) {
                     <!-- Vehicle -->
                     <div style="flex: 1; min-width: 300px;">
                         <h3>Vehicle Requirements</h3>
-                        <div class="admin__field"><label class="admin__field-label">Body</label><div class="admin__field-control"><input type="text" name="vehicle_body" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['vehicle_body']) ?>" /></div></div>
-                        <div class="admin__field"><label class="admin__field-label">Size ID</label><div class="admin__field-control"><input type="text" name="vehicle_size" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['vehicle_size']) ?>" /></div></div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Body</label>
+                            <div class="admin__field-control">
+                                <select name="vehicle_body" class="admin__control-select">
+                                    <?php foreach ($block->getVehicleBodyOptions() as $option): ?>
+                                        <option value="<?= $option['value'] ?>" <?= $formData['vehicle_body'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Size ID</label>
+                            <div class="admin__field-control">
+                                <select name="vehicle_size" class="admin__control-select">
+                                    <?php foreach ($block->getVehicleSizeOptions() as $option): ?>
+                                        <option value="<?= $option['value'] ?>" <?= $formData['vehicle_size'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Freight Type</label>
+                            <div class="admin__field-control">
+                                <select name="freight_type" class="admin__control-select">
+                                    <?php foreach ($block->getFreightTypeOptions() as $option): ?>
+                                        <option value="<?= $option['value'] ?>" <?= $formData['freight_type'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
                         <div class="admin__field"><label class="admin__field-label">Capacity (Tons)</label><div class="admin__field-control"><input type="text" name="capacity" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['capacity']) ?>" /></div></div>
                     </div>
 
@@ -230,7 +258,16 @@ $formatExpiration = function($expiresAt) {
                     <div style="flex: 1; min-width: 300px;">
                         <h3>Load Details</h3>
                         <div class="admin__field"><label class="admin__field-label">Name</label><div class="admin__field-control"><input type="text" name="load_name" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_name']) ?>" /></div></div>
-                        <div class="admin__field"><label class="admin__field-label">Type</label><div class="admin__field-control"><input type="text" name="load_type" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_type']) ?>" /></div></div>
+                        <div class="admin__field">
+                            <label class="admin__field-label">Type</label>
+                            <div class="admin__field-control">
+                                <select name="load_type" class="admin__control-select">
+                                    <?php foreach ($block->getLoadTypeOptions() as $option): ?>
+                                        <option value="<?= $option['value'] ?>" <?= $formData['load_type'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
                         <div class="admin__field"><label class="admin__field-label">Amount</label><div class="admin__field-control"><input type="text" name="load_amount" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_amount']) ?>" /></div></div>
                         <div class="admin__field"><label class="admin__field-label">Length (m)</label><div class="admin__field-control"><input type="text" name="load_length" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_length']) ?>" /></div></div>
                         <div class="admin__field"><label class="admin__field-label">Width (m)</label><div class="admin__field-control"><input type="text" name="load_width" class="admin__control-text" value="<?= $block->escapeHtmlAttr($formData['load_width']) ?>" /></div></div>
