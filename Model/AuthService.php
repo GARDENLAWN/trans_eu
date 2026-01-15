@@ -20,6 +20,7 @@ class AuthService
     const XML_PATH_AUTH_URL = 'trans_eu/general/auth_url';
     const XML_PATH_API_URL = 'trans_eu/general/api_url';
     const XML_PATH_REDIRECT_URI = 'trans_eu/general/redirect_uri';
+    const XML_PATH_MANUAL_TOKEN = 'trans_eu/general/manual_token';
 
     const XML_PATH_ACCESS_TOKEN = 'trans_eu/general/access_token';
     const XML_PATH_REFRESH_TOKEN = 'trans_eu/general/refresh_token';
@@ -137,6 +138,11 @@ class AuthService
 
     public function refreshToken()
     {
+        // If manual token is set, we can't refresh it automatically
+        if ($this->getManualToken()) {
+            return false;
+        }
+
         $refreshToken = $this->scopeConfig->getValue(self::XML_PATH_REFRESH_TOKEN);
         if (!$refreshToken) {
             return false;
@@ -184,8 +190,23 @@ class AuthService
         }
     }
 
+    public function getManualToken()
+    {
+        $token = $this->scopeConfig->getValue(self::XML_PATH_MANUAL_TOKEN);
+        if ($token) {
+            return trim($token);
+        }
+        return null;
+    }
+
     public function getAccessToken()
     {
+        // Check for manual token first
+        $manualToken = $this->getManualToken();
+        if ($manualToken) {
+            return $manualToken;
+        }
+
         $accessToken = $this->scopeConfig->getValue(self::XML_PATH_ACCESS_TOKEN);
         $expiresAt = $this->scopeConfig->getValue(self::XML_PATH_TOKEN_EXPIRES);
 
