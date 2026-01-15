@@ -12,6 +12,7 @@ use GardenLawn\Delivery\Model\Config\Source\VehicleBody;
 use GardenLawn\Delivery\Model\Config\Source\VehicleSize;
 use GardenLawn\Delivery\Model\Config\Source\FreightType;
 use GardenLawn\Delivery\Model\Config\Source\LoadType;
+use GardenLawn\Delivery\Model\Config\Source\OtherRequirements;
 
 class Index extends Template
 {
@@ -26,6 +27,7 @@ class Index extends Template
     protected $vehicleSizeSource;
     protected $freightTypeSource;
     protected $loadTypeSource;
+    protected $otherRequirementsSource;
 
     public function __construct(
         Template\Context $context,
@@ -39,6 +41,7 @@ class Index extends Template
         VehicleSize $vehicleSizeSource,
         FreightType $freightTypeSource,
         LoadType $loadTypeSource,
+        OtherRequirements $otherRequirementsSource,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -52,6 +55,7 @@ class Index extends Template
         $this->vehicleSizeSource = $vehicleSizeSource;
         $this->freightTypeSource = $freightTypeSource;
         $this->loadTypeSource = $loadTypeSource;
+        $this->otherRequirementsSource = $otherRequirementsSource;
     }
 
     public function getConfigData()
@@ -143,9 +147,10 @@ class Index extends Template
             'vehicle_size' => $request->getParam('vehicle_size', '14_double_trailer_lorry_solo'),
             'capacity' => $request->getParam('capacity', '15'),
             'freight_type' => $request->getParam('freight_type', 'ftl'),
+            'other_requirements' => $request->getParam('other_requirements', []),
 
             // Load details
-            'qty_m2' => $request->getParam('qty_m2', '250'), // Default 250 m2
+            'qty_m2' => $request->getParam('qty_m2', '250'),
             'load_amount' => $request->getParam('load_amount', '5'),
             'load_length' => $request->getParam('load_length', '1.2'),
             'load_width' => $request->getParam('load_width', '0.8'),
@@ -158,6 +163,7 @@ class Index extends Template
     public function getVehicleSizeOptions() { return $this->vehicleSizeSource->toOptionArray(); }
     public function getFreightTypeOptions() { return $this->freightTypeSource->toOptionArray(); }
     public function getLoadTypeOptions() { return $this->loadTypeSource->toOptionArray(); }
+    public function getOtherRequirementsOptions() { return $this->otherRequirementsSource->toOptionArray(); }
 
     /**
      * Execute the API call if form was submitted

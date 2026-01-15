@@ -404,6 +404,18 @@ $formatExpiration = function($expiresAt) {
                         <label>Capacity (Tons)</label>
                         <input type="text" name="capacity" id="capacity_input" value="<?= $block->escapeHtmlAttr($formData['capacity']) ?>" />
                     </div>
+                    <div class="field-row">
+                        <label>Other Requirements</label>
+                        <select name="other_requirements[]" multiple size="5">
+                            <?php
+                                $selectedOther = is_array($formData['other_requirements']) ? $formData['other_requirements'] : [];
+                            ?>
+                            <?php foreach ($block->getOtherRequirementsOptions() as $option): ?>
+                                <option value="<?= $option['value'] ?>" <?= in_array($option['value'], $selectedOther) ? 'selected' : '' ?>><?= $option['label'] ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small>Hold Ctrl/Cmd to select multiple</small>
+                    </div>
                 </div>
 
                 <!-- Load Details -->

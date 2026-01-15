@@ -104,10 +104,17 @@ class PredictPrice extends Action
                 $vehicleSize = reset($vehicleSize); // Take first one
             }
 
+            // Handle other_requirements
+            $otherRequirements = $params['other_requirements'] ?? [];
+            if (!is_array($otherRequirements)) {
+                $otherRequirements = [$otherRequirements];
+            }
+            $otherRequirements = array_filter($otherRequirements);
+
             $vehicleRequirements = [
                 "capacity" => (float)$params['capacity'],
                 "gps" => true,
-                "other_requirements" => [],
+                "other_requirements" => $otherRequirements,
                 "required_truck_bodies" => $vehicleBodies,
                 "required_ways_of_loading" => [],
                 "vehicle_size_id" => $vehicleSize,
@@ -115,7 +122,6 @@ class PredictPrice extends Action
             ];
             $requestModel->setVehicleRequirements($vehicleRequirements);
 
-            // Only add length if it's > 0, otherwise it might cause issues if not needed
             if ((float)$params['total_length'] > 0) {
                 $requestModel->setData('length', (float)$params['total_length']);
             }
