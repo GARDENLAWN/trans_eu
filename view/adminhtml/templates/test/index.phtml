@@ -200,6 +200,9 @@ $formatExpiration = function($expiresAt) {
                 <textarea id="manual_token_input" class="admin__control-textarea" style="width: 100%; height: 350px; font-family: monospace; font-size: 1.1rem;" placeholder="Paste Bearer token here (eyJ...)"><?= $block->escapeHtml($manualTokenValue) ?></textarea>
                 <div style="margin-top: 10px; text-align: right;">
                     <span id="save_status" style="margin-right: 10px; font-weight: bold;"></span>
+                    <button type="button" class="action-default scalable" id="auto_login_btn" style="margin-right: 10px;">
+                        <span>Auto-Login (Python)</span>
+                    </button>
                     <button type="button" class="action-primary-custom" id="save_token_btn">
                         <span>Save Token</span>
                     </button>
@@ -572,6 +575,28 @@ $formatExpiration = function($expiresAt) {
                 success: function(response) {
                     if (response.success) {
                         statusSpan.css('color', 'green').text('Saved! Reloading...');
+                        setTimeout(function() { location.reload(); }, 1000);
+                    } else {
+                        statusSpan.css('color', 'red').text('Error: ' + response.message);
+                    }
+                },
+                error: function() { statusSpan.css('color', 'red').text('Connection error.'); }
+            });
+        });
+
+        // Auto-Login Logic
+        $('#auto_login_btn').click(function() {
+            var statusSpan = $('#save_status');
+            statusSpan.css('color', 'blue').text('Running Python script... (this may take 20s)');
+
+            $.ajax({
+                url: '<?= $block->getUrl('gardenlawn_transeu/test/autoLogin') ?>',
+                type: 'POST',
+                data: { form_key: FORM_KEY },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        statusSpan.css('color', 'green').text('Success! Reloading...');
                         setTimeout(function() { location.reload(); }, 1000);
                     } else {
                         statusSpan.css('color', 'red').text('Error: ' + response.message);

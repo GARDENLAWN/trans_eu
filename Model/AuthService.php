@@ -34,6 +34,7 @@ class AuthService
     protected $logger;
     protected $reinitableConfig;
     protected $cacheTypeList;
+    protected $tokenProvider;
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -43,7 +44,8 @@ class AuthService
         EncryptorInterface $encryptor,
         LoggerInterface $logger,
         ReinitableConfigInterface $reinitableConfig,
-        TypeListInterface $cacheTypeList
+        TypeListInterface $cacheTypeList,
+        TokenProvider $tokenProvider
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->configWriter = $configWriter;
@@ -53,6 +55,7 @@ class AuthService
         $this->logger = $logger;
         $this->reinitableConfig = $reinitableConfig;
         $this->cacheTypeList = $cacheTypeList;
+        $this->tokenProvider = $tokenProvider;
     }
 
     public function getAuthorizationUrl()
@@ -138,9 +141,23 @@ class AuthService
 
     public function refreshToken()
     {
-        // If manual token is set, we can't refresh it automatically
-        if ($this->getManualToken()) {
-            return false;
+        // If manual token is set, we can't refresh it automatically via API,
+        // but we can try to refresh it via Python script if it's expired!
+        $manualToken = $this->getManualToken();
+        if ($manualToken) {
+            $exp = $this->getTokenExpirationTime($manualToken);
+            if ($exp && $exp < time()) {
+                $this->logger->info("Manual token expired. Attempting to refresh via Python script...");
+                $newToken = $this->tokenProvider->getTokenFromPython();
+                if ($newToken) {
+                    // Save as manual token
+                    $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
+                    $this->cacheTypeList->cleanType('config');
+                    $this->reinitableConfig->reinit();
+                    return $newToken;
+                }
+            }
+            return false; // Can't refresh manual token otherwise
         }
 
         $refreshToken = $this->scopeConfig->getValue(self::XML_PATH_REFRESH_TOKEN);
@@ -204,10 +221,37 @@ class AuthService
         // Check for manual token first
         $manualToken = $this->getManualToken();
         if ($manualToken) {
+            // Check if expired
+            $exp = $this->getTokenExpirationTime($manualToken);
+            if ($exp && $exp < time()) {
+                // Expired, try to get new one via Python
+                $this->logger->info("Manual token expired. Fetching new one via Python...");
+                $newToken = $this->tokenProvider->getTokenFromPython();
+                if ($newToken) {
+                    $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
+                    $this->cacheTypeList->cleanType('config');
+                    $this->reinitableConfig->reinit();
+                    return $newToken;
+                }
+            }
             return $manualToken;
         }
 
+        // If no manual token, try to get one via Python first (as this seems to be the preferred method for this user)
+        // Or fallback to OAuth2
+
+        // Let's try Python if no OAuth2 token
         $accessToken = $this->scopeConfig->getValue(self::XML_PATH_ACCESS_TOKEN);
+        if (!$accessToken) {
+             $newToken = $this->tokenProvider->getTokenFromPython();
+             if ($newToken) {
+                $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
+                $this->cacheTypeList->cleanType('config');
+                $this->reinitableConfig->reinit();
+                return $newToken;
+             }
+        }
+
         $expiresAt = $this->scopeConfig->getValue(self::XML_PATH_TOKEN_EXPIRES);
 
         if ($accessToken && $expiresAt > time()) {
