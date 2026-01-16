@@ -4,12 +4,11 @@
         <tab id="gardenlawn" translate="label" sortOrder="100">
             <label>GardenLawn</label>
         </tab>
-        <section id="trans_eu" translate="label" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+        <section id="trans_eu" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
             <class>separator-top</class>
             <label>Trans.eu Integration</label>
             <tab>gardenlawn</tab>
             <resource>GardenLawn_TransEu::config</resource>
-
             <group id="general" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>General Configuration</label>
                 <field id="active" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
@@ -31,10 +30,6 @@
                     <label>TransId</label>
                     <comment>Your Trans.eu ID (e.g. 1242549-1)</comment>
                 </field>
-                <field id="scopes" translate="label" type="text" sortOrder="48" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Scopes</label>
-                    <comment>Space separated list of scopes (e.g. "freights.read offers.create"). Leave empty for default.</comment>
-                </field>
                 <field id="auth_url" translate="label" type="text" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Auth URL</label>
                 </field>
@@ -45,15 +40,14 @@
                     <label>Redirect URI</label>
                     <comment>Must match the URI registered in Trans.eu application settings.</comment>
                 </field>
-
-                <field id="manual_token" translate="label" type="textarea" sortOrder="75" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Manual Access Token</label>
-                    <comment>Paste token from browser session here to override OAuth2 token. Useful for internal API endpoints.</comment>
+                <field id="manual_token" translate="label" type="textarea" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Manual Token (Bearer)</label>
+                    <comment>Paste token here if automatic flow fails.</comment>
                 </field>
-
-                <field id="authorize_btn" translate="label" type="button" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Authorize</label>
-                    <frontend_model>GardenLawn\TransEu\Block\Adminhtml\System\Config\AuthButton</frontend_model>
+                <field id="notification_email" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Notification Email</label>
+                    <comment>Email address to receive alerts when token refresh fails.</comment>
+                    <validate>validate-email</validate>
                 </field>
             </group>
         </section>

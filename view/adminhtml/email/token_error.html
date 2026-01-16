@@ -1,0 +1,18 @@
+<!--@subject Trans.eu Token Refresh Failed @-->
+<!--@vars {
+"var error_message":"Error Message",
+"var date":"Date"
+} @-->
+
+{{template config_path="design/email/header_template"}}
+
+<p>Hello Administrator,</p>
+
+<p>The automatic refresh of the Trans.eu API token failed.</p>
+
+<p><strong>Date:</strong> {{var date}}</p>
+<p><strong>Error:</strong> {{var error_message}}</p>
+
+<p>Please check the logs (<code>var/log/system.log</code>) and manually refresh the token in the Magento Admin Panel (Sales -> Operations -> Trans.eu API Test).</p>
+
+{{template config_path="design/email/footer_template"}}

@@ -9,6 +9,7 @@ use Magento\Framework\Encryption\EncryptorInterface;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\App\Config\ReinitableConfigInterface;
 use Magento\Framework\App\Cache\TypeListInterface;
+use GardenLawn\Core\Helper\EmailSender;
 
 class AuthService
 {
@@ -35,6 +36,7 @@ class AuthService
     protected $reinitableConfig;
     protected $cacheTypeList;
     protected $tokenProvider;
+    protected $emailSender;
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -45,7 +47,8 @@ class AuthService
         LoggerInterface $logger,
         ReinitableConfigInterface $reinitableConfig,
         TypeListInterface $cacheTypeList,
-        TokenProvider $tokenProvider
+        TokenProvider $tokenProvider,
+        EmailSender $emailSender
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->configWriter = $configWriter;
@@ -56,6 +59,7 @@ class AuthService
         $this->reinitableConfig = $reinitableConfig;
         $this->cacheTypeList = $cacheTypeList;
         $this->tokenProvider = $tokenProvider;
+        $this->emailSender = $emailSender;
     }
 
     public function getAuthorizationUrl()
@@ -141,8 +145,6 @@ class AuthService
 
     public function refreshToken()
     {
-        // If manual token is set, we can't refresh it automatically via API,
-        // but we can try to refresh it via Python script if it's expired!
         $manualToken = $this->getManualToken();
         if ($manualToken) {
             $exp = $this->getTokenExpirationTime($manualToken);
@@ -150,14 +152,15 @@ class AuthService
                 $this->logger->info("Manual token expired. Attempting to refresh via Python script...");
                 $newToken = $this->tokenProvider->getTokenFromPython();
                 if ($newToken) {
-                    // Save as manual token
                     $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
                     $this->cacheTypeList->cleanType('config');
                     $this->reinitableConfig->reinit();
                     return $newToken;
+                } else {
+                    $this->emailSender->sendTokenRefreshError("Python script failed to retrieve new token.");
                 }
             }
-            return false; // Can't refresh manual token otherwise
+            return false;
         }
 
         $refreshToken = $this->scopeConfig->getValue(self::XML_PATH_REFRESH_TOKEN);
@@ -218,13 +221,10 @@ class AuthService
 
     public function getAccessToken()
     {
-        // Check for manual token first
         $manualToken = $this->getManualToken();
         if ($manualToken) {
-            // Check if expired
             $exp = $this->getTokenExpirationTime($manualToken);
             if ($exp && $exp < time()) {
-                // Expired, try to get new one via Python
                 $this->logger->info("Manual token expired. Fetching new one via Python...");
                 $newToken = $this->tokenProvider->getTokenFromPython();
                 if ($newToken) {
@@ -232,15 +232,13 @@ class AuthService
                     $this->cacheTypeList->cleanType('config');
                     $this->reinitableConfig->reinit();
                     return $newToken;
+                } else {
+                    $this->emailSender->sendTokenRefreshError("Python script failed to retrieve new token (on demand).");
                 }
             }
             return $manualToken;
         }
 
-        // If no manual token, try to get one via Python first (as this seems to be the preferred method for this user)
-        // Or fallback to OAuth2
-
-        // Let's try Python if no OAuth2 token
         $accessToken = $this->scopeConfig->getValue(self::XML_PATH_ACCESS_TOKEN);
         if (!$accessToken) {
              $newToken = $this->tokenProvider->getTokenFromPython();
@@ -249,6 +247,8 @@ class AuthService
                 $this->cacheTypeList->cleanType('config');
                 $this->reinitableConfig->reinit();
                 return $newToken;
+             } else {
+                 $this->emailSender->sendTokenRefreshError("No token available and Python script failed.");
              }
         }
 
@@ -271,7 +271,6 @@ class AuthService
 
             $this->logger->info('Tokens saved successfully.');
 
-            // Clear config cache to ensure immediate availability
             $this->cacheTypeList->cleanType('config');
             $this->reinitableConfig->reinit();
             $this->logger->info('Config cache cleaned and reinitialized.');
@@ -281,11 +280,6 @@ class AuthService
         }
     }
 
-    /**
-     * Decode JWT token and get expiration time
-     * @param string $token
-     * @return int|null Timestamp or null if invalid
-     */
     public function getTokenExpirationTime($token)
     {
         if (!$token) {
