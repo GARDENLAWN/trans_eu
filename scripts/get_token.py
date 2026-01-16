@@ -15,7 +15,11 @@ os.environ['HOME'] = '/tmp'
 
 # Persistent profile directory
 PROFILE_DIR = "/var/www/html/magento/var/trans_eu_chrome_profile"
-CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver" # Adjust if needed
+
+# Find chromedriver automatically
+CHROMEDRIVER_PATH = shutil.which("chromedriver")
+if not CHROMEDRIVER_PATH:
+    CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver" # Fallback
 
 def get_token(username, password):
     options = Options()
@@ -72,19 +76,19 @@ def get_token(username, password):
             wait.until(EC.presence_of_element_located((By.NAME, "login")))
 
             username_input = driver.find_element(By.NAME, "login")
-            username_input.clear()
+            driver.execute_script("arguments[0].value = '';", username_input) # JS clear is safer
             username_input.send_keys(username)
 
             password_input = driver.find_element(By.NAME, "password")
-            password_input.clear()
+            driver.execute_script("arguments[0].value = '';", password_input)
             password_input.send_keys(password)
 
             submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-            submit_btn.click()
+            driver.execute_script("arguments[0].click();", submit_btn) # JS click is safer
             print("Submitted login form.", file=sys.stderr)
 
         except Exception as e:
-            print(f"Login form interaction failed: {e}", file=sys.stderr)
+            print(f"Login form interaction failed (might be already logged in?): {e}", file=sys.stderr)
 
         # 4. Wait for redirect or MFA
         print("Waiting for redirect/MFA...", file=sys.stderr)
@@ -96,6 +100,10 @@ def get_token(username, password):
 
             if "mfa/auth" in current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
                 print("MFA Detected!", file=sys.stderr)
+
+                # Check if running interactively
+                if not sys.stdin.isatty():
+                     return "Error: MFA Required but script is running in background (Cron). Run manually to authorize."
 
                 try:
                     email_btn = driver.find_element(By.CSS_SELECTOR, "div[data-ctx-id='email'] button")
@@ -119,22 +127,22 @@ def get_token(username, password):
                     try:
                         input_field = driver.find_element(By.NAME, f"otp-input-{j}")
                         input_field.send_keys(code[j])
-                        time.sleep(5)
+                        time.sleep(0.5)
                     except:
                         pass
 
-                time.sleep(5)
+                time.sleep(2)
 
                 try:
                     confirm_btn = driver.find_element(By.CSS_SELECTOR, "button[data-ctx='auth-submit']")
                     if not confirm_btn.is_enabled():
-                        time.sleep(5)
+                        time.sleep(2)
                     confirm_btn.click()
                     print("Clicked Confirm.", file=sys.stderr)
                 except:
                     print("Could not find Confirm button.", file=sys.stderr)
 
-                time.sleep(15)
+                time.sleep(10)
                 break
 
             token = extract_token(driver)
