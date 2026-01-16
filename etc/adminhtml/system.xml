@@ -40,6 +40,10 @@
                     <label>Redirect URI</label>
                     <comment>Must match the URI registered in Trans.eu application settings.</comment>
                 </field>
+                <field id="authorize_btn" translate="label" sortOrder="75" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Authorization</label>
+                    <frontend_model>GardenLawn\TransEu\Block\Adminhtml\System\Config\AuthButton</frontend_model>
+                </field>
                 <field id="manual_token" translate="label" type="textarea" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Manual Token (Bearer)</label>
                     <comment>Paste token here if automatic flow fails.</comment>
