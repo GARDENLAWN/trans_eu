@@ -3,6 +3,7 @@ import json
 import time
 import os
 import shutil
+import glob
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -21,7 +22,25 @@ CHROMEDRIVER_PATH = shutil.which("chromedriver")
 if not CHROMEDRIVER_PATH:
     CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver" # Fallback
 
+def cleanup_profile_locks(profile_path):
+    """Removes Chrome lock files that might prevent startup"""
+    locks = [
+        os.path.join(profile_path, "SingletonLock"),
+        os.path.join(profile_path, "SingletonCookie"),
+        os.path.join(profile_path, "Lockfile")
+    ]
+    for lock in locks:
+        try:
+            if os.path.exists(lock):
+                os.remove(lock)
+                # print(f"Removed lock file: {lock}", file=sys.stderr)
+        except Exception as e:
+            pass
+
 def get_token(username, password):
+    # Try to clean up locks before starting
+    cleanup_profile_locks(PROFILE_DIR)
+
     options = Options()
     options.add_argument("--headless") # Run in background
     options.add_argument("--no-sandbox")
@@ -29,6 +48,10 @@ def get_token(username, password):
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--remote-debugging-port=9222")
+
+    # Crash recovery
+    options.add_argument("--disable-session-crashed-bubble")
+    options.add_argument("--disable-infobars")
 
     # Use persistent user data dir
     options.add_argument(f"--user-data-dir={PROFILE_DIR}")
@@ -76,7 +99,7 @@ def get_token(username, password):
             wait.until(EC.presence_of_element_located((By.NAME, "login")))
 
             username_input = driver.find_element(By.NAME, "login")
-            driver.execute_script("arguments[0].value = '';", username_input) # JS clear is safer
+            driver.execute_script("arguments[0].value = '';", username_input)
             username_input.send_keys(username)
 
             password_input = driver.find_element(By.NAME, "password")
@@ -84,7 +107,7 @@ def get_token(username, password):
             password_input.send_keys(password)
 
             submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-            driver.execute_script("arguments[0].click();", submit_btn) # JS click is safer
+            driver.execute_script("arguments[0].click();", submit_btn)
             print("Submitted login form.", file=sys.stderr)
 
         except Exception as e:
@@ -101,7 +124,6 @@ def get_token(username, password):
             if "mfa/auth" in current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
                 print("MFA Detected!", file=sys.stderr)
 
-                # Check if running interactively
                 if not sys.stdin.isatty():
                      return "Error: MFA Required but script is running in background (Cron). Run manually to authorize."
 
@@ -155,7 +177,6 @@ def get_token(username, password):
         if token:
             return token
         else:
-            # Debug info
             debug_info = {
                 "url": driver.current_url,
                 "cookies": [c['name'] for c in driver.get_cookies()],
