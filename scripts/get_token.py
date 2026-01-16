@@ -90,7 +90,7 @@ def get_token(username, password):
         print("Waiting for redirect/MFA...", file=sys.stderr)
 
         for i in range(15):
-            time.sleep(2)
+            time.sleep(5)
             current_url = driver.current_url
             print(f"Loop {i}: {current_url}", file=sys.stderr)
 
@@ -119,16 +119,16 @@ def get_token(username, password):
                     try:
                         input_field = driver.find_element(By.NAME, f"otp-input-{j}")
                         input_field.send_keys(code[j])
-                        time.sleep(0.2)
+                        time.sleep(5)
                     except:
                         pass
 
-                time.sleep(1)
+                time.sleep(5)
 
                 try:
                     confirm_btn = driver.find_element(By.CSS_SELECTOR, "button[data-ctx='auth-submit']")
                     if not confirm_btn.is_enabled():
-                        time.sleep(2)
+                        time.sleep(5)
                     confirm_btn.click()
                     print("Clicked Confirm.", file=sys.stderr)
                 except:
