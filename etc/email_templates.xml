@@ -1,4 +1,4 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Email:etc/email_templates.xsd">
-    <template id="trans_eu_token_error" label="Trans.eu Token Refresh Error" file="token_error.html" type="text" module="GardenLawn_TransEu" area="adminhtml"/>
+    <template id="trans_eu_token_error" label="Trans.eu Token Refresh Error" file="token_error.html" type="html" module="GardenLawn_TransEu" area="adminhtml"/>
 </config>
