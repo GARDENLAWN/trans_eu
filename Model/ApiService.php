@@ -161,10 +161,11 @@ class ApiService
      * @param array $filters
      * @param string|null $sortBy
      * @param int $page
+     * @param string|null $token
      * @return array
      * @throws \Exception
      */
-    public function getFreightsList(array $filters = [], $sortBy = null, $page = 1)
+    public function getFreightsList(array $filters = [], $sortBy = null, $page = 1, $token = null)
     {
         $params = [
             'page' => $page
@@ -178,6 +179,6 @@ class ApiService
             $params['sortBy'] = $sortBy;
         }
 
-        return $this->makeRequest('GET', self::ENDPOINT_FREIGHTS_LIST, $params);
+        return $this->makeRequest('GET', self::ENDPOINT_FREIGHTS_LIST, $params, $token);
     }
 }

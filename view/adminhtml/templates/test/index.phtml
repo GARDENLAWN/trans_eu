@@ -527,24 +527,18 @@ $formatExpiration = function($expiresAt) {
     <div class="trans-eu-section">
         <h2>API Endpoint Test (Freights List)</h2>
 
-        <form action="<?= $block->getUrl('*/*/*') ?>" method="post">
-            <?= $block->getBlockHtml('formkey') ?>
-            <input type="hidden" name="action" value="freights_list" />
+        <form id="freights_list_form">
             <div style="text-align: right;">
-                <button type="submit" class="action-primary-custom"><span>Get Freights List</span></button>
+                <button type="button" class="action-primary-custom" id="get_freights_btn"><span>Get Freights List</span></button>
             </div>
         </form>
 
-        <?php if ($apiResult && isset($apiResult['type']) && $apiResult['type'] == 'freights_list'): ?>
-            <div class="result-box <?= $apiResult['success'] ? 'result-success' : 'result-error' ?>" style="margin-top: 20px;">
-                <h4 style="margin-top: 0;">Result (Status <?= $apiResult['status'] ?? 'Unknown' ?>)</h4>
-                <?php if ($apiResult['success']): ?>
-                    <pre style="max-height: 500px; overflow-y: auto;"><?= json_encode($apiResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?></pre>
-                <?php else: ?>
-                    <div style="color: #dc3545; font-weight: bold;"><?= $block->escapeHtml($apiResult['message']) ?></div>
-                <?php endif; ?>
+        <div id="freights_result_container" style="display: none; margin-top: 20px;">
+            <div class="result-box result-success">
+                <h4 style="margin-top: 0;">Result</h4>
+                <pre id="freights_result_pre" style="max-height: 500px; overflow-y: auto;"></pre>
             </div>
-        <?php endif; ?>
+        </div>
     </div>
 
     <?php endif; ?>
@@ -675,6 +669,34 @@ $formatExpiration = function($expiresAt) {
                     resultContainer.slideDown();
                 },
                 error: function() { statusMsg.html('<span style="color: red;">Connection Error</span>'); }
+            });
+        });
+
+        // Freights List Logic
+        $('#get_freights_btn').click(function() {
+            var resultContainer = $('#freights_result_container');
+            var resultPre = $('#freights_result_pre');
+            var manualToken = $('#manual_token_input').val();
+            var data = 'form_key=' + FORM_KEY;
+            if (manualToken) { data += '&token=' + encodeURIComponent(manualToken); }
+
+            resultContainer.hide();
+
+            $.ajax({
+                url: '<?= $block->getUrl('gardenlawn_transeu/test/freightsList') ?>',
+                type: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function(response) {
+                    resultPre.text(JSON.stringify(response.response, null, 4));
+                    resultContainer.find('.result-box').removeClass('result-error').addClass('result-success');
+                    resultContainer.slideDown();
+                },
+                error: function() {
+                    resultPre.text('Connection Error');
+                    resultContainer.find('.result-box').removeClass('result-success').addClass('result-error');
+                    resultContainer.slideDown();
+                }
             });
         });
     });
