@@ -9,7 +9,6 @@ use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\App\Config\ReinitableConfigInterface;
 use GardenLawn\TransEu\Model\TokenProvider;
 use GardenLawn\TransEu\Model\AuthService;
-use GardenLawn\Core\Helper\EmailSender;
 
 class AutoLogin extends Action
 {
@@ -18,7 +17,6 @@ class AutoLogin extends Action
     protected $configWriter;
     protected $cacheTypeList;
     protected $reinitableConfig;
-    protected $emailSender;
 
     public function __construct(
         Context $context,
@@ -26,8 +24,7 @@ class AutoLogin extends Action
         TokenProvider $tokenProvider,
         WriterInterface $configWriter,
         TypeListInterface $cacheTypeList,
-        ReinitableConfigInterface $reinitableConfig,
-        EmailSender $emailSender
+        ReinitableConfigInterface $reinitableConfig
     ) {
         parent::__construct($context);
         $this->resultJsonFactory = $resultJsonFactory;
@@ -35,7 +32,6 @@ class AutoLogin extends Action
         $this->configWriter = $configWriter;
         $this->cacheTypeList = $cacheTypeList;
         $this->reinitableConfig = $reinitableConfig;
-        $this->emailSender = $emailSender;
     }
 
     public function execute()
@@ -57,21 +53,15 @@ class AutoLogin extends Action
                     'token' => $token
                 ]);
             } else {
-                $msg = 'Failed to retrieve token via Python script (Manual Trigger). Check logs.';
-                $this->emailSender->sendTokenRefreshError($msg);
-
                 return $result->setData([
                     'success' => false,
-                    'message' => $msg
+                    'message' => 'Failed to retrieve token via Python script. Check logs.'
                 ]);
             }
         } catch (\Exception $e) {
-            $msg = 'Exception during manual token refresh: ' . $e->getMessage();
-            $this->emailSender->sendTokenRefreshError($msg);
-
             return $result->setData([
                 'success' => false,
-                'message' => $msg
+                'message' => 'Exception: ' . $e->getMessage()
             ]);
         }
     }
