@@ -523,7 +523,7 @@ $formatExpiration = function($expiresAt) {
 
     </div>
 
-    <!-- API Endpoint Test: Freights List -->
+    <!-- API Endpoint Test (Freights List) -->
     <div class="trans-eu-section">
         <h2>API Endpoint Test (Freights List)</h2>
 
@@ -676,9 +676,8 @@ $formatExpiration = function($expiresAt) {
         $('#get_freights_btn').click(function() {
             var resultContainer = $('#freights_result_container');
             var resultPre = $('#freights_result_pre');
-            var manualToken = $('#manual_token_input').val();
+            // Removed manual token logic for Freights List
             var data = 'form_key=' + FORM_KEY;
-            if (manualToken) { data += '&token=' + encodeURIComponent(manualToken); }
 
             resultContainer.hide();
 
