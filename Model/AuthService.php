@@ -64,6 +64,10 @@ class AuthService
         $this->emailSender = $emailSender;
     }
 
+    /**
+     * Step 1 - Authentication Request
+     * Documentation: GET /oauth2/auth
+     */
     public function getAuthorizationUrl()
     {
         $authUrl = $this->scopeConfig->getValue(self::XML_PATH_AUTH_URL);
@@ -71,6 +75,7 @@ class AuthService
         $redirectUri = $this->scopeConfig->getValue(self::XML_PATH_REDIRECT_URI);
         $scopes = $this->scopeConfig->getValue(self::XML_PATH_SCOPES);
 
+        // State is recommended to mitigate CSRF attacks
         $state = bin2hex(random_bytes(16));
 
         $params = [
@@ -99,6 +104,10 @@ class AuthService
         return null;
     }
 
+    /**
+     * Step 2 - Token Request
+     * Documentation: POST /ext/auth-api/accounts/token
+     */
     public function handleCallback($code)
     {
         $apiUrl = $this->scopeConfig->getValue(self::XML_PATH_API_URL);
@@ -145,6 +154,10 @@ class AuthService
         }
     }
 
+    /**
+     * Repeatable Step - Refresh Token Request
+     * Documentation: POST /ext/auth-api/accounts/token
+     */
     public function refreshToken()
     {
         $manualToken = $this->getManualToken();

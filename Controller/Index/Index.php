@@ -22,6 +22,7 @@ class Index extends Action
     {
         $code = $this->getRequest()->getParam('code');
         $error = $this->getRequest()->getParam('error');
+        $errorDescription = $this->getRequest()->getParam('error_description');
 
         /** @var \Magento\Framework\Controller\Result\Raw $result */
         $result = $this->resultFactory->create(ResultFactory::TYPE_RAW);
@@ -31,7 +32,10 @@ class Index extends Action
 
         if ($error) {
             $html .= '<h1 style="color:red;">Authorization Failed</h1>';
-            $html .= '<p>' . htmlspecialchars($error) . '</p>';
+            $html .= '<p>Error: ' . htmlspecialchars($error) . '</p>';
+            if ($errorDescription) {
+                $html .= '<p>Description: ' . htmlspecialchars($errorDescription) . '</p>';
+            }
         } elseif ($code) {
             try {
                 $this->authService->handleCallback($code);
