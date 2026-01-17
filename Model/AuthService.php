@@ -152,15 +152,7 @@ class AuthService
             $exp = $this->getTokenExpirationTime($manualToken);
             if ($exp && $exp < time()) {
                 $this->logger->info("Manual token expired. Attempting to refresh via Python script...");
-                $newToken = $this->tokenProvider->getTokenFromPython();
-                if ($newToken) {
-                    $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
-                    $this->cacheTypeList->cleanType('config');
-                    $this->reinitableConfig->reinit();
-                    return $newToken;
-                } else {
-                    $this->emailSender->sendTokenRefreshError("Python script failed to retrieve new token.");
-                }
+                return $this->fetchTokenFromPython();
             }
             return false;
         }
@@ -223,44 +215,53 @@ class AuthService
 
     public function getAccessToken()
     {
+        // 1. Check Manual Token
         $manualToken = $this->getManualToken();
         if ($manualToken) {
             $exp = $this->getTokenExpirationTime($manualToken);
             if ($exp && $exp < time()) {
                 $this->logger->info("Manual token expired. Fetching new one via Python...");
-                $newToken = $this->tokenProvider->getTokenFromPython();
-                if ($newToken) {
-                    $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
-                    $this->cacheTypeList->cleanType('config');
-                    $this->reinitableConfig->reinit();
-                    return $newToken;
-                } else {
-                    $this->emailSender->sendTokenRefreshError("Python script failed to retrieve new token (on demand).");
-                }
+                return $this->fetchTokenFromPython();
             }
             return $manualToken;
         }
 
+        // 2. Check Stored Access Token
         $accessToken = $this->scopeConfig->getValue(self::XML_PATH_ACCESS_TOKEN);
-        if (!$accessToken) {
-             $newToken = $this->tokenProvider->getTokenFromPython();
-             if ($newToken) {
-                $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
-                $this->cacheTypeList->cleanType('config');
-                $this->reinitableConfig->reinit();
-                return $newToken;
-             } else {
-                 $this->emailSender->sendTokenRefreshError("No token available and Python script failed.");
-             }
-        }
-
         $expiresAt = $this->scopeConfig->getValue(self::XML_PATH_TOKEN_EXPIRES);
 
         if ($accessToken && $expiresAt > time()) {
-            return $accessToken;
+            return $accessToken; // Token is valid
         }
 
-        return $this->refreshToken();
+        // 3. Token missing or expired -> Try Refresh Token (API)
+        $this->logger->info("Access token expired or missing. Attempting refresh...");
+        $refreshedToken = $this->refreshToken();
+
+        if ($refreshedToken) {
+            return $refreshedToken;
+        }
+
+        // 4. Refresh failed -> Fallback to Python Auto-Login
+        $this->logger->info("Refresh token failed. Fallback to Python Auto-Login...");
+        return $this->fetchTokenFromPython();
+    }
+
+    /**
+     * Helper to run Python script and save token
+     */
+    protected function fetchTokenFromPython()
+    {
+        $newToken = $this->tokenProvider->getTokenFromPython();
+        if ($newToken) {
+            $this->configWriter->save(self::XML_PATH_MANUAL_TOKEN, $newToken);
+            $this->cacheTypeList->cleanType('config');
+            $this->reinitableConfig->reinit();
+            return $newToken;
+        } else {
+            $this->emailSender->sendTokenRefreshError("Python script failed to retrieve new token (on demand).");
+            return null;
+        }
     }
 
     protected function saveTokens($data)
