@@ -3,6 +3,7 @@ import json
 import time
 import os
 import shutil
+import base64
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -40,19 +41,55 @@ def log(message):
     """Log to stderr for debugging"""
     print(f"[Python] {message}", file=sys.stderr)
 
+def is_token_valid(token):
+    """Checks if JWT token is valid (not expired)"""
+    try:
+        parts = token.split('.')
+        if len(parts) != 3:
+            return False
+
+        payload = parts[1]
+        # Add padding if needed
+        padding = len(payload) % 4
+        if padding:
+            payload += '=' * (4 - padding)
+
+        decoded = base64.urlsafe_b64decode(payload)
+        data = json.loads(decoded)
+
+        if 'exp' in data:
+            exp = data['exp']
+            now = time.time()
+            # Check if expired (with 5 min buffer)
+            if exp > (now + 300):
+                return True
+            else:
+                log(f"Token found but expired. Exp: {exp}, Now: {now}")
+                return False
+        return True # No exp field, assume valid
+    except Exception as e:
+        log(f"Error validating token: {e}")
+        return False
+
 def wait_for_token(driver, timeout=45):
-    """Polls for token in localStorage and cookies for a given duration"""
+    """Polls for VALID token in localStorage and cookies"""
     start_time = time.time()
-    log(f"Polling for token (timeout={timeout}s)...")
+    log(f"Polling for valid token (timeout={timeout}s)...")
 
     while time.time() - start_time < timeout:
         token = extract_token(driver)
         if token:
-            log("Token found successfully.")
-            return token
-        time.sleep(1) # Check every second
+            if is_token_valid(token):
+                log("Valid token found.")
+                return token
+            else:
+                # Token exists but expired.
+                # If we are just polling, maybe the app is about to refresh it?
+                # Or maybe we need to force logout?
+                pass
+        time.sleep(1)
 
-    log("Token polling timed out.")
+    log("Token polling timed out or no valid token found.")
     return None
 
 def get_token(username, password):
@@ -92,23 +129,27 @@ def get_token(username, password):
         log("Navigating to login page...")
         driver.get("https://auth.platform.trans.eu/accounts/login")
 
-        # 2. Check if already logged in (Fast check)
+        # 2. Check if already logged in
         try:
             WebDriverWait(driver, 10).until(EC.url_contains("platform.trans.eu"))
-            log("Already on platform URL, checking for token...")
-            token = wait_for_token(driver, timeout=10)
-            if token: return token
+            log("Already on platform URL, checking for valid token...")
+            token = wait_for_token(driver, timeout=5)
+            if token:
+                return token
+            else:
+                log("Logged in but token expired/missing. Forcing logout...")
+                driver.get("https://auth.platform.trans.eu/accounts/logout")
+                time.sleep(3)
+                driver.get("https://auth.platform.trans.eu/accounts/login")
         except TimeoutException:
             log("Not redirected automatically, proceeding to login form.")
 
         # 3. Wait for login form
         log("Waiting for login form elements...")
-        wait = WebDriverWait(driver, 30) # Increased timeout
+        wait = WebDriverWait(driver, 30)
 
         try:
             wait.until(EC.presence_of_element_located((By.NAME, "login")))
-
-            # Ensure fields are interactable
             time.sleep(1)
 
             username_input = driver.find_element(By.NAME, "login")
@@ -119,7 +160,7 @@ def get_token(username, password):
             driver.execute_script("arguments[0].value = '';", password_input)
             password_input.send_keys(password)
 
-            time.sleep(0.5) # Small delay before click
+            time.sleep(0.5)
 
             submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
             driver.execute_script("arguments[0].click();", submit_btn)
@@ -127,17 +168,15 @@ def get_token(username, password):
 
         except TimeoutException:
             log("Login form not found. Checking if we are already logged in...")
-            # Maybe we are already logged in but URL check failed earlier?
             token = wait_for_token(driver, timeout=5)
             if token: return token
-            return "Error: Login form not found and no token present."
+            return "Error: Login form not found and no valid token present."
         except Exception as e:
             return f"Error interacting with login form: {str(e)}"
 
         # 4. Wait for redirect and token
         log("Waiting for post-login redirect...")
 
-        # Wait until URL changes from login page or we are on platform
         try:
             WebDriverWait(driver, 45).until(
                 lambda d: "accounts/login" not in d.current_url or "platform.trans.eu" in d.current_url
@@ -146,13 +185,12 @@ def get_token(username, password):
         except TimeoutException:
             log("Timeout waiting for URL change. Checking for MFA or errors...")
 
-        # Check for MFA
         if "mfa/auth" in driver.current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
             log("MFA Detected!")
             return "Error: MFA Required. Please run manually to authorize this device."
 
         # 5. Poll for token
-        token = wait_for_token(driver, timeout=60) # Give it up to 60s to load everything
+        token = wait_for_token(driver, timeout=60)
 
         if token:
             return token
@@ -162,7 +200,7 @@ def get_token(username, password):
                 "cookies": [c['name'] for c in driver.get_cookies()],
                 "localStorageKeys": driver.execute_script("return Object.keys(localStorage);")
             }
-            return f"Error: Token not found after waiting. Debug: {json.dumps(debug_info)}"
+            return f"Error: Valid token not found after waiting. Debug: {json.dumps(debug_info)}"
 
     except Exception as e:
         return f"Error: Unexpected exception: {str(e)}"
