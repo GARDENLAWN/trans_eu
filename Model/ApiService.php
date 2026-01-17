@@ -42,9 +42,19 @@ class ApiService
      */
     public function makeRequest($method, $endpoint, $data = [], $explicitToken = null)
     {
-        $token = $explicitToken ?: $this->authService->getAccessToken();
+        // Determine which token to use based on endpoint
+        if ($explicitToken) {
+            $token = $explicitToken;
+        } elseif (strpos($endpoint, '/ext/') === 0) {
+            // Official Partner API -> Use OAuth Token
+            $token = $this->authService->getOAuthToken();
+        } else {
+            // Internal Web API -> Use Web Token (Manual/Python)
+            $token = $this->authService->getWebToken();
+        }
+
         if (!$token) {
-            throw new \Exception('No access token available. Please authorize the module or provide a manual token.');
+            throw new \Exception('No access token available for endpoint: ' . $endpoint);
         }
 
         // Determine Base URL
@@ -98,9 +108,21 @@ class ApiService
             } elseif ($statusCode == 401) {
                 $this->logger->error("Unauthorized (401). Response: " . $responseBody);
 
-                // Retry logic (only if we are using stored token)
+                // Retry logic
                 if (!$explicitToken) {
-                    $newToken = $this->authService->refreshToken();
+                    $newToken = null;
+                    if (strpos($endpoint, '/ext/') === 0) {
+                        // Refresh OAuth Token
+                        $newToken = $this->authService->refreshToken();
+                    } else {
+                        // Refresh Web Token (Python)
+                        // Note: getWebToken() already tries to refresh if expired, but maybe it was valid but rejected?
+                        // Force refresh via Python not directly exposed here, but we can try calling getWebToken again if we assume it checks validity.
+                        // However, if the token was valid by date but rejected by server, we might need a force refresh flag.
+                        // For now, let's just log it.
+                        $this->logger->warning("Web token rejected by server (401).");
+                    }
+
                     if ($newToken && $newToken !== $token) {
                         $this->logger->info("Token refreshed, retrying request...");
 

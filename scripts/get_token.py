@@ -3,13 +3,13 @@ import json
 import time
 import os
 import shutil
-import glob
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # Set HOME to /tmp to avoid permission issues with cache
 os.environ['HOME'] = '/tmp'
@@ -33,39 +33,49 @@ def cleanup_profile_locks(profile_path):
         try:
             if os.path.exists(lock):
                 os.remove(lock)
-                # print(f"Removed lock file: {lock}", file=sys.stderr)
-        except Exception as e:
+        except Exception:
             pass
 
+def log(message):
+    """Log to stderr for debugging"""
+    print(f"[Python] {message}", file=sys.stderr)
+
+def wait_for_token(driver, timeout=45):
+    """Polls for token in localStorage and cookies for a given duration"""
+    start_time = time.time()
+    log(f"Polling for token (timeout={timeout}s)...")
+
+    while time.time() - start_time < timeout:
+        token = extract_token(driver)
+        if token:
+            log("Token found successfully.")
+            return token
+        time.sleep(1) # Check every second
+
+    log("Token polling timed out.")
+    return None
+
 def get_token(username, password):
-    # Try to clean up locks before starting
     cleanup_profile_locks(PROFILE_DIR)
 
     options = Options()
-    options.add_argument("--headless") # Run in background
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--remote-debugging-port=9222")
-
-    # Crash recovery
     options.add_argument("--disable-session-crashed-bubble")
     options.add_argument("--disable-infobars")
-
-    # Use persistent user data dir
     options.add_argument(f"--user-data-dir={PROFILE_DIR}")
-
-    # Spoof user agent
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-    # Hide automation flags
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
 
     service = Service(executable_path=CHROMEDRIVER_PATH)
     driver = None
+
     try:
         driver = webdriver.Chrome(service=service, options=options)
 
@@ -79,24 +89,27 @@ def get_token(username, password):
         })
 
         # 1. Go to login page
-        print("Navigating to login page...", file=sys.stderr)
+        log("Navigating to login page...")
         driver.get("https://auth.platform.trans.eu/accounts/login")
 
-        # 2. Check if already logged in
+        # 2. Check if already logged in (Fast check)
         try:
-            WebDriverWait(driver, 5).until(EC.url_contains("platform.trans.eu"))
-            if "sso" in driver.current_url: time.sleep(5)
-            token = extract_token(driver)
+            WebDriverWait(driver, 10).until(EC.url_contains("platform.trans.eu"))
+            log("Already on platform URL, checking for token...")
+            token = wait_for_token(driver, timeout=10)
             if token: return token
-        except:
-            pass
+        except TimeoutException:
+            log("Not redirected automatically, proceeding to login form.")
 
         # 3. Wait for login form
-        print("Waiting for login form...", file=sys.stderr)
-        wait = WebDriverWait(driver, 20)
+        log("Waiting for login form elements...")
+        wait = WebDriverWait(driver, 30) # Increased timeout
 
         try:
             wait.until(EC.presence_of_element_located((By.NAME, "login")))
+
+            # Ensure fields are interactable
+            time.sleep(1)
 
             username_input = driver.find_element(By.NAME, "login")
             driver.execute_script("arguments[0].value = '';", username_input)
@@ -106,97 +119,65 @@ def get_token(username, password):
             driver.execute_script("arguments[0].value = '';", password_input)
             password_input.send_keys(password)
 
+            time.sleep(0.5) # Small delay before click
+
             submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
             driver.execute_script("arguments[0].click();", submit_btn)
-            print("Submitted login form.", file=sys.stderr)
+            log("Submitted login form.")
 
+        except TimeoutException:
+            log("Login form not found. Checking if we are already logged in...")
+            # Maybe we are already logged in but URL check failed earlier?
+            token = wait_for_token(driver, timeout=5)
+            if token: return token
+            return "Error: Login form not found and no token present."
         except Exception as e:
-            print(f"Login form interaction failed (might be already logged in?): {e}", file=sys.stderr)
+            return f"Error interacting with login form: {str(e)}"
 
-        # 4. Wait for redirect or MFA
-        print("Waiting for redirect/MFA...", file=sys.stderr)
+        # 4. Wait for redirect and token
+        log("Waiting for post-login redirect...")
 
-        for i in range(15):
-            time.sleep(5)
-            current_url = driver.current_url
-            print(f"Loop {i}: {current_url}", file=sys.stderr)
+        # Wait until URL changes from login page or we are on platform
+        try:
+            WebDriverWait(driver, 45).until(
+                lambda d: "accounts/login" not in d.current_url or "platform.trans.eu" in d.current_url
+            )
+            log(f"URL changed to: {driver.current_url}")
+        except TimeoutException:
+            log("Timeout waiting for URL change. Checking for MFA or errors...")
 
-            if "mfa/auth" in current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
-                print("MFA Detected!", file=sys.stderr)
+        # Check for MFA
+        if "mfa/auth" in driver.current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
+            log("MFA Detected!")
+            return "Error: MFA Required. Please run manually to authorize this device."
 
-                if not sys.stdin.isatty():
-                     return "Error: MFA Required but script is running in background (Cron). Run manually to authorize."
+        # 5. Poll for token
+        token = wait_for_token(driver, timeout=60) # Give it up to 60s to load everything
 
-                try:
-                    email_btn = driver.find_element(By.CSS_SELECTOR, "div[data-ctx-id='email'] button")
-                    email_btn.click()
-                    print("Clicked 'Send Email'.", file=sys.stderr)
-                except Exception as e:
-                    print(f"Could not click 'Send Email': {e}", file=sys.stderr)
-
-                print("Enter the verification code from email: ", file=sys.stderr, end='')
-                sys.stderr.flush()
-
-                try:
-                    code = input()
-                except EOFError:
-                    return "Error: MFA Required but no input provided (EOF)."
-
-                code = code.strip()
-                print(f"Received code: {code}", file=sys.stderr)
-
-                for j in range(6):
-                    try:
-                        input_field = driver.find_element(By.NAME, f"otp-input-{j}")
-                        input_field.send_keys(code[j])
-                        time.sleep(0.5)
-                    except:
-                        pass
-
-                time.sleep(2)
-
-                try:
-                    confirm_btn = driver.find_element(By.CSS_SELECTOR, "button[data-ctx='auth-submit']")
-                    if not confirm_btn.is_enabled():
-                        time.sleep(2)
-                    confirm_btn.click()
-                    print("Clicked Confirm.", file=sys.stderr)
-                except:
-                    print("Could not find Confirm button.", file=sys.stderr)
-
-                time.sleep(10)
-                break
-
-            token = extract_token(driver)
-            if token:
-                print("Token found!", file=sys.stderr)
-                return token
-
-        # 5. Final check
-        token = extract_token(driver)
         if token:
             return token
         else:
             debug_info = {
                 "url": driver.current_url,
                 "cookies": [c['name'] for c in driver.get_cookies()],
-                "localStorage": driver.execute_script("return Object.keys(localStorage);"),
-                "sessionStorage": driver.execute_script("return Object.keys(sessionStorage);")
+                "localStorageKeys": driver.execute_script("return Object.keys(localStorage);")
             }
-            return f"Error: Token not found. Debug: {json.dumps(debug_info)}"
+            return f"Error: Token not found after waiting. Debug: {json.dumps(debug_info)}"
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: Unexpected exception: {str(e)}"
     finally:
         if driver:
             driver.quit()
 
 def extract_token(driver):
+    # 1. Direct localStorage check
     try:
         token = driver.execute_script("return localStorage.getItem('access_token');")
-        if token: return token
+        if token and len(token) > 20: return token
     except: pass
 
+    # 2. Search inside JSON objects in localStorage
     try:
         script = """
         for (var i = 0; i < localStorage.length; i++) {
@@ -206,6 +187,7 @@ def extract_token(driver):
             try {
                 var obj = JSON.parse(value);
                 if (obj.access_token) return obj.access_token;
+                if (obj.token) return obj.token;
             } catch(e) {}
         }
         return null;
@@ -214,6 +196,7 @@ def extract_token(driver):
         if token: return token
     except: pass
 
+    # 3. Check cookies
     try:
         cookies = driver.get_cookies()
         for cookie in cookies:

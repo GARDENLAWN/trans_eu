@@ -160,16 +160,6 @@ class AuthService
      */
     public function refreshToken()
     {
-        $manualToken = $this->getManualToken();
-        if ($manualToken) {
-            $exp = $this->getTokenExpirationTime($manualToken);
-            if ($exp && $exp < time()) {
-                $this->logger->info("Manual token expired. Attempting to refresh via Python script...");
-                return $this->fetchTokenFromPython();
-            }
-            return false;
-        }
-
         $refreshToken = $this->scopeConfig->getValue(self::XML_PATH_REFRESH_TOKEN);
         if (!$refreshToken) {
             return false;
@@ -217,29 +207,12 @@ class AuthService
         }
     }
 
-    public function getManualToken()
+    /**
+     * Get OAuth Access Token for Official API (e.g. Freights List)
+     */
+    public function getOAuthToken()
     {
-        $token = $this->scopeConfig->getValue(self::XML_PATH_MANUAL_TOKEN);
-        if ($token) {
-            return trim($token);
-        }
-        return null;
-    }
-
-    public function getAccessToken()
-    {
-        // 1. Check Manual Token
-        $manualToken = $this->getManualToken();
-        if ($manualToken) {
-            $exp = $this->getTokenExpirationTime($manualToken);
-            if ($exp && $exp < time()) {
-                $this->logger->info("Manual token expired. Fetching new one via Python...");
-                return $this->fetchTokenFromPython();
-            }
-            return $manualToken;
-        }
-
-        // 2. Check Stored Access Token
+        // 1. Check Stored Access Token
         $accessToken = $this->scopeConfig->getValue(self::XML_PATH_ACCESS_TOKEN);
         $expiresAt = $this->scopeConfig->getValue(self::XML_PATH_TOKEN_EXPIRES);
 
@@ -247,17 +220,47 @@ class AuthService
             return $accessToken; // Token is valid
         }
 
-        // 3. Token missing or expired -> Try Refresh Token (API)
-        $this->logger->info("Access token expired or missing. Attempting refresh...");
+        // 2. Token missing or expired -> Try Refresh Token (API)
+        $this->logger->info("OAuth Access token expired or missing. Attempting refresh...");
         $refreshedToken = $this->refreshToken();
 
         if ($refreshedToken) {
             return $refreshedToken;
         }
 
-        // 4. Refresh failed -> Fallback to Python Auto-Login
-        $this->logger->info("Refresh token failed. Fallback to Python Auto-Login...");
+        $this->logger->error("Failed to retrieve OAuth token. Please re-authorize module.");
+        return null;
+    }
+
+    /**
+     * Get Web Token for Internal API (e.g. Price Prediction)
+     * Uses Manual Token or Python Script
+     */
+    public function getWebToken()
+    {
+        $manualToken = $this->scopeConfig->getValue(self::XML_PATH_MANUAL_TOKEN);
+        if ($manualToken) {
+            $manualToken = trim($manualToken);
+            $exp = $this->getTokenExpirationTime($manualToken);
+            if ($exp && $exp < time()) {
+                $this->logger->info("Web token (manual) expired. Fetching new one via Python...");
+                return $this->fetchTokenFromPython();
+            }
+            return $manualToken;
+        }
+
+        // If no token, try to fetch one
+        $this->logger->info("No Web token found. Fetching via Python...");
         return $this->fetchTokenFromPython();
+    }
+
+    /**
+     * Deprecated: Use getOAuthToken() or getWebToken() depending on context.
+     * Kept for backward compatibility if needed, but prefers OAuth.
+     */
+    public function getAccessToken()
+    {
+        return $this->getOAuthToken();
     }
 
     /**
