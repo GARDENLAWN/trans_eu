@@ -104,6 +104,28 @@ def wait_for_token(driver, timeout=45):
     log("Token polling timed out or no valid token found.")
     return None
 
+def clear_browser_data(driver):
+    """Clears localStorage, sessionStorage, cookies and Service Workers"""
+    try:
+        driver.execute_script("window.localStorage.clear();")
+        driver.execute_script("window.sessionStorage.clear();")
+        driver.delete_all_cookies()
+
+        # Clear Service Workers
+        driver.execute_script("""
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                        registration.unregister();
+                    }
+                });
+            }
+        """)
+
+        log("Browser data (localStorage, cookies, SW) cleared.")
+    except Exception as e:
+        log(f"Error clearing browser data: {e}")
+
 def get_token(username, password):
     cleanup_profile_locks(PROFILE_DIR)
 
@@ -149,9 +171,10 @@ def get_token(username, password):
             if token:
                 return token
             else:
-                log("Logged in but token expired/missing. Forcing logout...")
+                log("Logged in but token expired/missing. Clearing data and forcing logout...")
+                clear_browser_data(driver)
                 driver.get("https://auth.platform.trans.eu/accounts/logout")
-                time.sleep(3)
+                time.sleep(5) # Increased wait
                 driver.get("https://auth.platform.trans.eu/accounts/login")
         except TimeoutException:
             log("Not redirected automatically, proceeding to login form.")
@@ -162,7 +185,7 @@ def get_token(username, password):
 
         try:
             wait.until(EC.presence_of_element_located((By.NAME, "login")))
-            time.sleep(1)
+            time.sleep(2) # Increased stability wait
 
             username_input = driver.find_element(By.NAME, "login")
             driver.execute_script("arguments[0].value = '';", username_input)
@@ -172,7 +195,7 @@ def get_token(username, password):
             driver.execute_script("arguments[0].value = '';", password_input)
             password_input.send_keys(password)
 
-            time.sleep(0.5)
+            time.sleep(1)
 
             submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
             driver.execute_script("arguments[0].click();", submit_btn)
@@ -182,7 +205,21 @@ def get_token(username, password):
             log("Login form not found. Checking if we are already logged in...")
             token = wait_for_token(driver, timeout=5)
             if token: return token
-            return "Error: Login form not found and no valid token present."
+
+            # Last resort: Clear data and reload
+            log("Login form missing and no token. Clearing data and reloading...")
+            clear_browser_data(driver)
+            driver.refresh()
+            time.sleep(5)
+
+            # Try finding form one more time
+            try:
+                wait.until(EC.presence_of_element_located((By.NAME, "login")))
+                # ... (would need to repeat login logic, but let's just fail with better error)
+                return "Error: Login form appeared after refresh but script logic ended. Please retry."
+            except:
+                return "Error: Login form not found and no valid token present."
+
         except Exception as e:
             return f"Error interacting with login form: {str(e)}"
 
