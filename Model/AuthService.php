@@ -233,6 +233,24 @@ class AuthService
     }
 
     /**
+     * Check and refresh OAuth token if it expires soon (for Cron)
+     * @param int $bufferSeconds Time buffer in seconds (default 2 hours)
+     */
+    public function checkAndRefreshOAuthToken($bufferSeconds = 7200)
+    {
+        $accessToken = $this->scopeConfig->getValue(self::XML_PATH_ACCESS_TOKEN);
+        $expiresAt = $this->scopeConfig->getValue(self::XML_PATH_TOKEN_EXPIRES);
+
+        // If token is missing or expires within buffer time, refresh it
+        if (!$accessToken || !$expiresAt || ($expiresAt - time()) < $bufferSeconds) {
+            $this->logger->info("Cron: OAuth token expiring soon (or missing). Refreshing...");
+            return $this->refreshToken();
+        }
+
+        return true; // Token is valid
+    }
+
+    /**
      * Get Web Token for Internal API (e.g. Price Prediction)
      * Uses Manual Token or Python Script
      */

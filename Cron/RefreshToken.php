@@ -58,13 +58,13 @@ class RefreshToken
             $exp = $this->authService->getTokenExpirationTime($currentToken);
             // If token is valid for at least another 2 hours, skip refresh to avoid spamming Selenium
             if ($exp && ($exp - time()) > 7200) {
-                $this->logger->info("Cron Job [TransEu]: Token is valid for > 2 hours. Skipping refresh.");
+                $this->logger->info("Cron Job [TransEu]: Web Token is valid for > 2 hours. Skipping refresh.");
                 $shouldRefresh = false;
             }
         }
 
         if ($shouldRefresh) {
-            $this->logger->info("Cron Job [TransEu]: Token missing or expiring soon. Starting refresh via Python...");
+            $this->logger->info("Cron Job [TransEu]: Web Token missing or expiring soon. Starting refresh via Python...");
             try {
                 $token = $this->tokenProvider->getTokenFromPython();
 
@@ -72,23 +72,23 @@ class RefreshToken
                     $this->configWriter->save(AuthService::XML_PATH_MANUAL_TOKEN, $token);
                     $this->cacheTypeList->cleanType('config');
                     $this->reinitableConfig->reinit();
-                    $this->logger->info("Cron Job [TransEu]: Token refreshed successfully.");
+                    $this->logger->info("Cron Job [TransEu]: Web Token refreshed successfully.");
                 } else {
-                    $this->logger->error("Cron Job [TransEu]: Failed to refresh token (Python script returned null).");
+                    $this->logger->error("Cron Job [TransEu]: Failed to refresh Web Token (Python script returned null).");
                     // Only send email if we really have no valid token
                     if (!$currentToken || ($exp && $exp < time())) {
-                        $this->emailSender->sendTokenRefreshError("Cron job failed to retrieve token via Python script.");
+                        $this->emailSender->sendTokenRefreshError("Cron job failed to retrieve Web Token via Python script.");
                     }
                 }
             } catch (\Exception $e) {
-                $this->logger->error("Cron Job [TransEu]: Exception refreshing token: " . $e->getMessage());
+                $this->logger->error("Cron Job [TransEu]: Exception refreshing Web Token: " . $e->getMessage());
             }
         }
 
-        // Also refresh OAuth token if needed
+        // Also refresh OAuth token if needed (with 2h buffer)
         $this->logger->info("Cron Job [TransEu]: Checking OAuth Token status...");
         try {
-            $this->authService->getOAuthToken(); // This method automatically refreshes if needed
+            $this->authService->checkAndRefreshOAuthToken(7200);
         } catch (\Exception $e) {
              $this->logger->error("Cron Job [TransEu]: OAuth refresh error: " . $e->getMessage());
         }
