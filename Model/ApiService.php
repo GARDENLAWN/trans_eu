@@ -69,19 +69,27 @@ class ApiService
             $url .= '?' . http_build_query($data);
         }
 
-        $this->curl->setHeaders([
+        $headers = [
             'Authorization' => 'Bearer ' . $token,
             'Content-Type' => 'application/json',
             'Accept' => 'application/json'
-        ]);
+        ];
 
         // Add Api-key ONLY for /ext/ endpoints (Partner API)
         if (strpos($endpoint, '/ext/') === 0) {
             $apiKey = $this->authService->getApiKey();
             if ($apiKey) {
-                 $this->curl->addHeader('Api-key', $apiKey);
+                 $headers['Api-key'] = $apiKey;
             }
+        } else {
+            // For Web API (/app/), emulate browser headers to avoid CORS/WAF issues
+            $headers['Origin'] = 'https://platform.trans.eu';
+            $headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+            // Optional headers observed in browser, might be needed if strict checks are in place
+            // $headers['x-frontend-component'] = 'freight-publication.module@1.466.8-hotfix.2';
         }
+
+        $this->curl->setHeaders($headers);
 
         $this->logger->info("Trans.eu API Request [$method]: $url");
 
@@ -116,28 +124,14 @@ class ApiService
                         $newToken = $this->authService->refreshToken();
                     } else {
                         // Refresh Web Token (Python)
-                        // Note: getWebToken() already tries to refresh if expired, but maybe it was valid but rejected?
-                        // Force refresh via Python not directly exposed here, but we can try calling getWebToken again if we assume it checks validity.
-                        // However, if the token was valid by date but rejected by server, we might need a force refresh flag.
-                        // For now, let's just log it.
                         $this->logger->warning("Web token rejected by server (401).");
                     }
 
                     if ($newToken && $newToken !== $token) {
                         $this->logger->info("Token refreshed, retrying request...");
 
-                        $this->curl->setHeaders([
-                            'Authorization' => 'Bearer ' . $newToken,
-                            'Content-Type' => 'application/json',
-                            'Accept' => 'application/json'
-                        ]);
-
-                        if (strpos($endpoint, '/ext/') === 0) {
-                            $apiKey = $this->authService->getApiKey();
-                            if ($apiKey) {
-                                 $this->curl->addHeader('Api-key', $apiKey);
-                            }
-                        }
+                        $headers['Authorization'] = 'Bearer ' . $newToken;
+                        $this->curl->setHeaders($headers);
 
                         if (strtoupper($method) == 'POST') {
                              $this->curl->post($url, $this->json->serialize($data));
