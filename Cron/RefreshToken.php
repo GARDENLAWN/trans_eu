@@ -8,6 +8,7 @@ use Magento\Framework\App\Config\Storage\WriterInterface;
 use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\App\Config\ReinitableConfigInterface;
 use Psr\Log\LoggerInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 
 class RefreshToken
 {
@@ -17,6 +18,8 @@ class RefreshToken
     protected $reinitableConfig;
     protected $logger;
     protected $emailSender;
+    protected $scopeConfig;
+    protected $authService;
 
     public function __construct(
         TokenProvider $tokenProvider,
@@ -24,7 +27,9 @@ class RefreshToken
         TypeListInterface $cacheTypeList,
         ReinitableConfigInterface $reinitableConfig,
         LoggerInterface $logger,
-        EmailSender $emailSender
+        EmailSender $emailSender,
+        ScopeConfigInterface $scopeConfig,
+        AuthService $authService
     ) {
         $this->tokenProvider = $tokenProvider;
         $this->configWriter = $configWriter;
@@ -32,27 +37,60 @@ class RefreshToken
         $this->reinitableConfig = $reinitableConfig;
         $this->logger = $logger;
         $this->emailSender = $emailSender;
+        $this->scopeConfig = $scopeConfig;
+        $this->authService = $authService;
     }
 
     public function execute()
     {
-        $this->logger->info("Cron: Starting Trans.eu token refresh...");
+        // Check if module is active
+        if (!$this->scopeConfig->isSetFlag(AuthService::XML_PATH_ACTIVE)) {
+            return;
+        }
 
-        try {
-            $token = $this->tokenProvider->getTokenFromPython();
+        $this->logger->info("Cron Job [TransEu]: Checking Web Token status...");
 
-            if ($token) {
-                $this->configWriter->save(AuthService::XML_PATH_MANUAL_TOKEN, $token);
-                $this->cacheTypeList->cleanType('config');
-                $this->reinitableConfig->reinit();
-                $this->logger->info("Cron: Token refreshed successfully.");
-            } else {
-                $this->logger->error("Cron: Failed to refresh token.");
-                $this->emailSender->sendTokenRefreshError("Cron job failed to retrieve token via Python script.");
+        // Check current token expiration
+        $currentToken = $this->scopeConfig->getValue(AuthService::XML_PATH_MANUAL_TOKEN);
+        $shouldRefresh = true;
+
+        if ($currentToken) {
+            $exp = $this->authService->getTokenExpirationTime($currentToken);
+            // If token is valid for at least another 2 hours, skip refresh to avoid spamming Selenium
+            if ($exp && ($exp - time()) > 7200) {
+                $this->logger->info("Cron Job [TransEu]: Token is valid for > 2 hours. Skipping refresh.");
+                $shouldRefresh = false;
             }
+        }
+
+        if ($shouldRefresh) {
+            $this->logger->info("Cron Job [TransEu]: Token missing or expiring soon. Starting refresh via Python...");
+            try {
+                $token = $this->tokenProvider->getTokenFromPython();
+
+                if ($token) {
+                    $this->configWriter->save(AuthService::XML_PATH_MANUAL_TOKEN, $token);
+                    $this->cacheTypeList->cleanType('config');
+                    $this->reinitableConfig->reinit();
+                    $this->logger->info("Cron Job [TransEu]: Token refreshed successfully.");
+                } else {
+                    $this->logger->error("Cron Job [TransEu]: Failed to refresh token (Python script returned null).");
+                    // Only send email if we really have no valid token
+                    if (!$currentToken || ($exp && $exp < time())) {
+                        $this->emailSender->sendTokenRefreshError("Cron job failed to retrieve token via Python script.");
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->logger->error("Cron Job [TransEu]: Exception refreshing token: " . $e->getMessage());
+            }
+        }
+
+        // Also refresh OAuth token if needed
+        $this->logger->info("Cron Job [TransEu]: Checking OAuth Token status...");
+        try {
+            $this->authService->getOAuthToken(); // This method automatically refreshes if needed
         } catch (\Exception $e) {
-            $this->logger->error("Cron: Exception refreshing token: " . $e->getMessage());
-            $this->emailSender->sendTokenRefreshError("Cron job exception: " . $e->getMessage());
+             $this->logger->error("Cron Job [TransEu]: OAuth refresh error: " . $e->getMessage());
         }
     }
 }
