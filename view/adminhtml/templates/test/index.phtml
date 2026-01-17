@@ -263,7 +263,7 @@ $formatExpiration = function($expiresAt) {
                 </table>
 
                 <div style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 4px;">
-                    <strong>Live Token Check:</strong>
+                    <strong>Live Token Check (OAuth):</strong>
                     <?php if ($testResult['success']): ?>
                         <span class="valid">SUCCESS</span> (<?= $testResult['duration'] ?>s)
                         <?php if ($testResult['token'] !== $accessToken && !empty($accessToken) && empty($manualToken)): ?>
@@ -334,7 +334,6 @@ $formatExpiration = function($expiresAt) {
     </div>
 
     <!-- API Endpoint Test Form (Raw) -->
-    <?php if ($testResult['success']): ?>
     <div class="trans-eu-section">
         <h2>API Endpoint Test (Raw Request)</h2>
 
@@ -541,7 +540,6 @@ $formatExpiration = function($expiresAt) {
         </div>
     </div>
 
-    <?php endif; ?>
 </div>
 
 <script>

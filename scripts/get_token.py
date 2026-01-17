@@ -20,8 +20,22 @@ PROFILE_DIR = "/var/www/html/magento/var/trans_eu_chrome_profile"
 
 # Find chromedriver automatically
 CHROMEDRIVER_PATH = shutil.which("chromedriver")
+
+# Fallback paths
 if not CHROMEDRIVER_PATH:
-    CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver" # Fallback
+    POSSIBLE_PATHS = [
+        "/usr/local/bin/chromedriver",
+        "/usr/bin/chromedriver",
+        "/var/www/html/magento/pub/chromedriver/linux64/144.0.7559.31/chromedriver"
+    ]
+    for path in POSSIBLE_PATHS:
+        if os.path.exists(path):
+            CHROMEDRIVER_PATH = path
+            break
+
+if not CHROMEDRIVER_PATH:
+    print(json.dumps({"success": False, "message": "Error: chromedriver not found in PATH or fallback locations."}))
+    sys.exit(1)
 
 def cleanup_profile_locks(profile_path):
     """Removes Chrome lock files that might prevent startup"""
@@ -84,8 +98,6 @@ def wait_for_token(driver, timeout=45):
                 return token
             else:
                 # Token exists but expired.
-                # If we are just polling, maybe the app is about to refresh it?
-                # Or maybe we need to force logout?
                 pass
         time.sleep(1)
 
