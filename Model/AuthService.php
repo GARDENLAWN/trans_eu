@@ -14,6 +14,8 @@ use GardenLawn\Core\Helper\EmailSender;
 class AuthService
 {
     const XML_PATH_ACTIVE = 'trans_eu/general/active';
+    const XML_PATH_USERNAME = 'trans_eu/general/username';
+    const XML_PATH_PASSWORD = 'trans_eu/general/password';
     const XML_PATH_CLIENT_ID = 'trans_eu/general/client_id';
     const XML_PATH_CLIENT_SECRET = 'trans_eu/general/client_secret';
     const XML_PATH_API_KEY = 'trans_eu/general/api_key';

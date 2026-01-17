@@ -7,6 +7,7 @@ use Magento\Framework\Serialize\Serializer\Json;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\Component\ComponentRegistrar;
 use Magento\Framework\Component\ComponentRegistrarInterface;
+use GardenLawn\TransEu\Model\AuthService;
 
 class TokenProvider
 {
@@ -32,13 +33,22 @@ class TokenProvider
 
     public function getTokenFromPython()
     {
-        // Get credentials from config (we might need to add username/password fields if they differ from client_id)
-        // Assuming client_id is username and we need a password field, OR we use hardcoded for now as requested.
-        // Ideally, add 'username' and 'password' fields to system.xml.
+        // Get credentials from config
+        $username = $this->scopeConfig->getValue(AuthService::XML_PATH_USERNAME);
+        $password = $this->scopeConfig->getValue(AuthService::XML_PATH_PASSWORD);
 
-        // For now, using the credentials you provided in chat (hardcoded for safety test, but should be config)
-        $username = '1242549-1';
-        $password = 'Ktm450sx-f@!';
+        if (!$username || !$password) {
+            $this->logger->error("Trans.eu Auto-Login: Username or Password not configured.");
+            return null;
+        }
+
+        // Decrypt password
+        try {
+            $password = $this->encryptor->decrypt($password);
+        } catch (\Exception $e) {
+            $this->logger->error("Trans.eu Auto-Login: Failed to decrypt password: " . $e->getMessage());
+            return null;
+        }
 
         // Locate the script
         $modulePath = $this->componentRegistrar->getPath(ComponentRegistrar::MODULE, 'GardenLawn_TransEu');
@@ -53,11 +63,12 @@ class TokenProvider
         // Ensure python3 is in path or use full path
         $cmd = "python3 " . escapeshellarg($scriptPath) . " " . escapeshellarg($username) . " " . escapeshellarg($password) . " 2>&1";
 
-        $this->logger->info("Executing Python script: $cmd");
+        $this->logger->info("Executing Python script: python3 ... " . escapeshellarg($username) . " [PASSWORD HIDDEN]");
 
         $output = shell_exec($cmd);
 
-        $this->logger->info("Python script output: " . $output);
+        // Log output but be careful not to log sensitive info if script echoes it back (it shouldn't)
+        $this->logger->info("Python script output: " . substr($output, 0, 500) . "...");
 
         if (!$output) {
             $this->logger->error("Python script returned no output.");
