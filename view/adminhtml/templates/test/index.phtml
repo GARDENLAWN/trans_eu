@@ -507,12 +507,7 @@ $defaultTime = $now->format('H:i');
         <div id="api_result_container" style="display: none;">
             <div class="result-box result-success">
                 <h4 style="margin-top: 0; color: #28a745;">Response</h4>
-                <pre id="api_result_pre"></pre>
-            </div>
-
-            <div style="margin-top: 20px;">
-                <strong>Generated Payload (Debug):</strong>
-                <pre id="api_payload_pre" style="background: #f9f9f9; font-size: 11px; color: #666;"></pre>
+                <div id="api_result_content"></div>
             </div>
         </div>
 
@@ -656,12 +651,72 @@ $defaultTime = $now->format('H:i');
             });
         });
 
+        function formatApiResult(data) {
+            var html = '';
+            var resp = data.response;
+            var payload = data.request_payload;
+
+            // 1. Price Summary
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Price Prediction</span>';
+            html += '<table class="debug-table">';
+            if (resp.prediction_pln) {
+                html += '<tr><td><strong>Final Price (Netto)</strong></td><td><strong style="color:#28a745; font-size:1.4em;">' + resp.prediction_pln + ' PLN</strong></td></tr>';
+                html += '<tr><td>Base Price (EUR)</td><td>' + (resp.prediction ? resp.prediction[0] : '-') + ' EUR</td></tr>';
+                html += '<tr><td>Exchange Rate</td><td>' + resp.rate_eur_pln + '</td></tr>';
+            } else {
+                html += '<tr><td><strong>Price</strong></td><td>' + (resp.prediction ? resp.prediction[0] : '-') + ' ' + resp.currency + '</td></tr>';
+            }
+            html += '</table>';
+            html += '</div>';
+
+            // 2. Route Details
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Route Details</span>';
+            html += '<table class="debug-table">';
+            html += '<tr><td>Distance</td><td>' + (payload.distance / 1000).toFixed(1) + ' km</td></tr>';
+            if (payload.spots && payload.spots.length >= 2) {
+                var origin = payload.spots[0].place;
+                var dest = payload.spots[1].place;
+                html += '<tr><td>Origin</td><td>' + origin.address.locality + ' (' + origin.address.postal_code + ') [' + origin.coordinates.latitude + ', ' + origin.coordinates.longitude + ']</td></tr>';
+                html += '<tr><td>Destination</td><td>' + dest.address.locality + ' (' + dest.address.postal_code + ') [' + dest.coordinates.latitude + ', ' + dest.coordinates.longitude + ']</td></tr>';
+            }
+            html += '</table>';
+            html += '</div>';
+
+            // 3. Vehicle & Load
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Vehicle & Load</span>';
+            html += '<table class="debug-table">';
+            var vr = payload.vehicle_requirements;
+            html += '<tr><td>Vehicle Size</td><td>' + vr.vehicle_size_id + '</td></tr>';
+            html += '<tr><td>Body</td><td>' + (vr.required_truck_bodies ? vr.required_truck_bodies.join(', ') : '-') + '</td></tr>';
+            html += '<tr><td>Freight Type</td><td>' + vr.transport_type + '</td></tr>';
+            html += '<tr><td>Capacity</td><td>' + vr.capacity + ' Tons</td></tr>';
+            html += '<tr><td>Total LDM</td><td>' + payload.length + '</td></tr>';
+            html += '</table>';
+            html += '</div>';
+
+            // 4. Raw JSONs (Collapsible)
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Raw Data</span>';
+
+            html += '<div><span class="json-toggle" onclick="$(this).next().toggle()">Show Request Payload</span>';
+            html += '<div class="json-content"><pre>' + JSON.stringify(payload, null, 2) + '</pre></div></div>';
+
+            html += '<div style="margin-top:5px;"><span class="json-toggle" onclick="$(this).next().toggle()">Show API Response</span>';
+            html += '<div class="json-content"><pre>' + JSON.stringify(resp, null, 2) + '</pre></div></div>';
+
+            html += '</div>';
+
+            return html;
+        }
+
         // Price Prediction Logic
         $('#predict_price_btn').click(function() {
             var form = $('#api_test_form');
             var resultContainer = $('#api_result_container');
-            var resultPre = $('#api_result_pre');
-            var payloadPre = $('#api_payload_pre');
+            var resultContent = $('#api_result_content');
             var statusMsg = $('#api_status_msg');
             var manualToken = $('#manual_token_input').val();
             var data = form.serialize();
@@ -679,22 +734,14 @@ $defaultTime = $now->format('H:i');
                     if (response.success) {
                         statusMsg.html('<span style="color: green;">SUCCESS</span>');
 
-                        // Format response nicely
-                        var html = '';
-                        if (response.response.prediction_pln) {
-                            html += '<strong>Price: ' + response.response.prediction_pln + ' PLN</strong> (Rate: ' + response.response.rate_eur_pln + ')<br>';
-                        }
-                        html += JSON.stringify(response.response, null, 4);
+                        var html = formatApiResult(response);
+                        resultContent.html(html);
 
-                        resultPre.html(html);
                         resultContainer.find('.result-box').removeClass('result-error').addClass('result-success');
                     } else {
                         statusMsg.html('<span style="color: red;">FAILED: ' + response.message + '</span>');
-                        resultPre.text('');
+                        resultContent.html('<pre>' + JSON.stringify(response, null, 4) + '</pre>');
                         resultContainer.find('.result-box').removeClass('result-success').addClass('result-error');
-                    }
-                    if (response.request_payload) {
-                        payloadPre.text(JSON.stringify(response.request_payload, null, 4));
                     }
                     resultContainer.slideDown();
                 },
