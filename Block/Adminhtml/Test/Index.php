@@ -125,6 +125,16 @@ class Index extends Template
     {
         $request = $this->getRequest();
 
+        // Use current time in Poland for defaults
+        try {
+            $now = new \DateTime('now', new \DateTimeZone('Europe/Warsaw'));
+        } catch (\Exception $e) {
+            $now = new \DateTime();
+        }
+
+        $defaultDate = $now->format('Y-m-d');
+        $defaultTime = $now->format('H:i');
+
         return [
             'company_id' => $request->getParam('company_id', '1242549'),
             'user_id' => $request->getParam('user_id', '1903733'),
@@ -135,13 +145,15 @@ class Index extends Template
             'source_zip' => $request->getParam('source_zip', '78-400'),
             'source_lat' => $request->getParam('source_lat', '53.708021'),
             'source_lon' => $request->getParam('source_lon', '16.6943922'),
-            'source_date' => $request->getParam('source_date', '2026-01-15'),
+            'source_date' => $request->getParam('source_date', $defaultDate),
+            'source_time' => $request->getParam('source_time', $defaultTime),
 
             'dest_city' => $request->getParam('dest_city', 'Opole'),
             'dest_zip' => $request->getParam('dest_zip', '46-081'),
             'dest_lat' => $request->getParam('dest_lat', '50.75644296'),
             'dest_lon' => $request->getParam('dest_lon', '17.879288038'),
-            'dest_date' => $request->getParam('dest_date', '2026-01-16'),
+            'dest_date' => $request->getParam('dest_date', $defaultDate),
+            'dest_time' => $request->getParam('dest_time', $defaultTime),
 
             'vehicle_body' => $request->getParam('vehicle_body', ['8_standard_tent', '9_curtainsider']),
             'vehicle_size' => $request->getParam('vehicle_size', '3_lorry'),

@@ -434,14 +434,6 @@ $defaultTime = $now->format('H:i');
                         <input type="text" name="load_amount" id="load_amount_input" value="<?= $block->escapeHtmlAttr($formData['load_amount']) ?>" readonly />
                         <small>Auto-calculated from m²</small>
                     </div>
-                    <div class="field-row">
-                        <label>Length (m)</label>
-                        <input type="text" name="load_length" id="load_length_input" value="<?= $block->escapeHtmlAttr($formData['load_length']) ?>" />
-                    </div>
-                    <div class="field-row">
-                        <label>Width (m)</label>
-                        <input type="text" name="load_width" id="load_width_input" value="<?= $block->escapeHtmlAttr($formData['load_width']) ?>" />
-                    </div>
                 </div>
 
                 <!-- Source -->
@@ -644,8 +636,7 @@ $defaultTime = $now->format('H:i');
                         $('#capacity_input').val(p.capacity_tons);
                         $('#load_amount_input').val(p.load_amount);
                         $('#load_type_select').val(p.load_type);
-                        $('#load_length_input').val(p.load_length);
-                        $('#load_width_input').val(p.load_width);
+                        // Removed load_length and load_width inputs
                         $('#total_length_input').val(p.total_ldm);
                         $('#other_req_select').val(p.other_requirements);
 
