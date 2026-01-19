@@ -69,7 +69,10 @@ class PredictPrice extends Action
                     "operations" => [["loads" => [$defaultLoad]]],
                     "place" => [
                         "address" => ["locality" => $params['source_city'], "postal_code" => $params['source_zip']],
-                        "coordinates" => ["latitude" => (float)$params['source_lat'], "longitude" => (float)$params['source_lon']],
+                        "coordinates" => [
+                            "latitude" => round((float)$params['source_lat'], 7),
+                            "longitude" => round((float)$params['source_lon'], 7)
+                        ],
                         "country" => "PL"
                     ],
                     "timespans" => [
@@ -82,7 +85,10 @@ class PredictPrice extends Action
                     "operations" => [["loads" => [$defaultLoad]]],
                     "place" => [
                         "address" => ["locality" => $params['dest_city'], "postal_code" => $params['dest_zip']],
-                        "coordinates" => ["latitude" => (float)$params['dest_lat'], "longitude" => (float)$params['dest_lon']],
+                        "coordinates" => [
+                            "latitude" => round((float)$params['dest_lat'], 7),
+                            "longitude" => round((float)$params['dest_lon'], 7)
+                        ],
                         "country" => "PL"
                     ],
                     "timespans" => [
