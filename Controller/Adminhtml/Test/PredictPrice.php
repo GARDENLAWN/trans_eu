@@ -55,10 +55,8 @@ class PredictPrice extends Action
             // Dynamic load structure
             $defaultLoad = [
                 "amount" => (float)$params['load_amount'],
-                "length" => (float)$params['load_length'],
                 "name" => $params['load_name'],
                 "type_of_load" => $params['load_type'],
-                "width" => (float)$params['load_width']
             ];
 
             $spots = [

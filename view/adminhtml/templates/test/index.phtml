@@ -459,7 +459,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Date</label>
-                        <input type="date" name="source_date" value="<?= $block->escapeHtmlAttr($formData['source_date']) ?>" />
+                        <input type="date" name="source_date" value="<?= $block->escapeHtmlAttr($formData['source_date'] ?: date('Y-m-d')) ?>" />
                     </div>
                 </div>
 
@@ -484,7 +484,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Date</label>
-                        <input type="date" name="dest_date" value="<?= $block->escapeHtmlAttr($formData['dest_date']) ?>" />
+                        <input type="date" name="dest_date" value="<?= $block->escapeHtmlAttr($formData['dest_date'] ?: date('Y-m-d')) ?>" />
                     </div>
                 </div>
 
