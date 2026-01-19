@@ -16,6 +16,11 @@ $formatExpiration = function($expiresAt) {
         return "$dateStr <span class='expired'>(Expired)</span>";
     }
 };
+
+// Get current time in Poland for defaults
+$now = new \DateTime('now', new \DateTimeZone('Europe/Warsaw'));
+$defaultDate = $now->format('Y-m-d');
+$defaultTime = $now->format('H:i');
 ?>
 
 <style>
@@ -89,6 +94,7 @@ $formatExpiration = function($expiresAt) {
     }
     .field-row input[type="text"],
     .field-row input[type="date"],
+    .field-row input[type="time"],
     .field-row select {
         width: 100%;
         padding: 8px;
@@ -459,7 +465,11 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Date</label>
-                        <input type="date" name="source_date" value="<?= $block->escapeHtmlAttr($formData['source_date'] ?: date('Y-m-d')) ?>" />
+                        <input type="date" name="source_date" value="<?= $block->escapeHtmlAttr($formData['source_date'] ?? $defaultDate) ?>" />
+                    </div>
+                    <div class="field-row">
+                        <label>Time</label>
+                        <input type="time" name="source_time" value="<?= $block->escapeHtmlAttr(($formData['source_time'] ?? '') ?: $defaultTime) ?>" />
                     </div>
                 </div>
 
@@ -484,7 +494,11 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Date</label>
-                        <input type="date" name="dest_date" value="<?= $block->escapeHtmlAttr($formData['dest_date'] ?: date('Y-m-d')) ?>" />
+                        <input type="date" name="dest_date" value="<?= $block->escapeHtmlAttr($formData['dest_date'] ?? $defaultDate) ?>" />
+                    </div>
+                    <div class="field-row">
+                        <label>Time</label>
+                        <input type="time" name="dest_time" value="<?= $block->escapeHtmlAttr(($formData['dest_time'] ?? '') ?: $defaultTime) ?>" />
                     </div>
                 </div>
 

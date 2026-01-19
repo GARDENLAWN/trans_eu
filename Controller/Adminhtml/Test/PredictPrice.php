@@ -52,6 +52,11 @@ class PredictPrice extends Action
                 return gmdate('Y-m-d\TH:i:s.000\Z', strtotime($dateStr));
             };
 
+            $sourceDate = $params['source_date'] ?? date('Y-m-d');
+            $sourceTime = $params['source_time'] ?? '13:00';
+            $destDate = $params['dest_date'] ?? date('Y-m-d');
+            $destTime = $params['dest_time'] ?? '07:00';
+
             // Dynamic load structure
             $defaultLoad = [
                 "amount" => (float)$params['load_amount'],
@@ -68,8 +73,8 @@ class PredictPrice extends Action
                         "country" => "PL"
                     ],
                     "timespans" => [
-                        "begin" => $formatDate($params['source_date'] . ' 13:00:00'),
-                        "end" => $formatDate($params['source_date'] . ' 13:00:00')
+                        "begin" => $formatDate("$sourceDate $sourceTime:00"),
+                        "end" => $formatDate("$sourceDate $sourceTime:00")
                     ],
                     "type" => "loading"
                 ],
@@ -81,8 +86,8 @@ class PredictPrice extends Action
                         "country" => "PL"
                     ],
                     "timespans" => [
-                        "begin" => $formatDate($params['dest_date'] . ' 07:00:00'),
-                        "end" => $formatDate($params['dest_date'] . ' 07:00:00')
+                        "begin" => $formatDate("$destDate $destTime:00"),
+                        "end" => $formatDate("$destDate $destTime:00")
                     ],
                     "type" => "unloading"
                 ]
