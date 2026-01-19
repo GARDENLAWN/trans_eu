@@ -5,20 +5,24 @@ use Magento\Backend\App\Action;
 use Magento\Backend\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
 use GardenLawn\Delivery\Service\TransEuQuoteService;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 
 class TestQuote extends Action
 {
     protected $resultJsonFactory;
     protected $quoteService;
+    protected $scopeConfig;
 
     public function __construct(
         Context $context,
         JsonFactory $resultJsonFactory,
-        TransEuQuoteService $quoteService
+        TransEuQuoteService $quoteService,
+        ScopeConfigInterface $scopeConfig
     ) {
         parent::__construct($context);
         $this->resultJsonFactory = $resultJsonFactory;
         $this->quoteService = $quoteService;
+        $this->scopeConfig = $scopeConfig;
     }
 
     public function execute()
@@ -37,6 +41,15 @@ class TestQuote extends Action
         $destination = $params['destination'] ?? 'Opole, 46-081';
         $distance = (float)($params['distance'] ?? 450.0);
         $qty = (float)($params['qty_m2'] ?? 100.0);
+
+        // Check if Trans.eu is enabled for this carrier
+        if (!$this->scopeConfig->isSetFlag("carriers/$carrierCode/use_transeu_api")) {
+            return $result->setData([
+                'success' => false,
+                'message' => "Trans.eu Price Prediction is DISABLED for carrier '$carrierCode'. Enable it in configuration.",
+                'debug_info' => []
+            ]);
+        }
 
         try {
             $price = $this->quoteService->getPrice(
@@ -59,7 +72,7 @@ class TestQuote extends Action
             } else {
                 return $result->setData([
                     'success' => false,
-                    'message' => 'Price calculation returned null.',
+                    'message' => 'Price calculation returned null (check debug info).',
                     'debug_info' => $debugInfo
                 ]);
             }
@@ -78,8 +91,16 @@ class TestQuote extends Action
         $carrierCode = $params['carrier_code'] ?? 'direct_no_lift';
         $qty = (float)($params['qty_m2'] ?? 100.0);
 
+        // Check if Trans.eu is enabled for this carrier (optional for simulation, but good to know)
+        $isEnabled = $this->scopeConfig->isSetFlag("carriers/$carrierCode/use_transeu_api");
+
         try {
             $resolved = $this->quoteService->prepareRequestParams($carrierCode, $qty);
+
+            if (!$isEnabled) {
+                $resolved['debug'][] = "WARNING: Trans.eu Price Prediction is DISABLED for this carrier in config.";
+            }
+
             return $result->setData($resolved);
         } catch (\Exception $e) {
             return $result->setData(['success' => false, 'message' => $e->getMessage()]);
