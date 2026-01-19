@@ -131,6 +131,20 @@ $formatExpiration = function($expiresAt) {
         color: #fff;
         text-decoration: none;
     }
+    .action-secondary-custom {
+        background-color: #f0f0f0;
+        border-color: #ccc;
+        color: #333;
+        padding: 8px 15px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        border-radius: 3px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+    }
+    .action-secondary-custom:hover {
+        background-color: #e0e0e0;
+    }
 
     /* Results */
     .result-box {
@@ -279,81 +293,37 @@ $formatExpiration = function($expiresAt) {
                         </tr>
                     </tbody>
                 </table>
-
-                <div style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 4px;">
-                    <strong>Live Token Check (OAuth):</strong>
-                    <?php if ($testResult['success']): ?>
-                        <span class="valid">SUCCESS</span> (<?= $testResult['duration'] ?>s)
-                        <?php if ($testResult['token'] !== $accessToken && !empty($accessToken) && empty($manualToken)): ?>
-                            <br><small>Note: Token was automatically refreshed.</small>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <span class="expired">FAILED</span> <br><small><?= $block->escapeHtml($testResult['message']) ?></small>
-                    <?php endif; ?>
-                </div>
             </div>
         </div>
     </div>
 
-    <!-- Test Quote Service Logic (Full Flow) -->
+    <!-- API Endpoint Test Form (Full Flow) -->
     <div class="trans-eu-section">
-        <h2>Test Quote Service Logic (Full Flow)</h2>
-        <p>This tests the full logic: Rules matching, Vehicle selection, API call, Currency conversion.</p>
+        <h2>API Endpoint Test (Full Flow)</h2>
+        <p>Select a carrier and quantity to auto-fill parameters from rules, then send request.</p>
 
-        <form id="quote_test_form">
+        <div style="background: #e6f7ff; padding: 15px; border: 1px solid #b8e0f5; border-radius: 4px; margin-bottom: 20px;">
             <div class="form-grid">
-                <div class="form-column">
-                    <div class="field-row">
-                        <label>Carrier Code</label>
-                        <select name="carrier_code">
-                            <option value="direct_no_lift">Direct No Lift</option>
-                            <option value="direct_lift">Direct Lift</option>
-                            <option value="direct_forklift">Direct Forklift</option>
-                        </select>
-                    </div>
+                <div class="field-row">
+                    <label>Carrier Method</label>
+                    <select id="sim_carrier_code">
+                        <option value="direct_no_lift">Direct No Lift</option>
+                        <option value="direct_lift">Direct Lift</option>
+                        <option value="direct_forklift">Direct Forklift</option>
+                    </select>
                 </div>
-                <div class="form-column">
-                    <div class="field-row">
-                        <label>Quantity (m²)</label>
-                        <input type="text" name="qty_m2" value="100" />
-                    </div>
+                <div class="field-row">
+                    <label>Quantity (m²)</label>
+                    <input type="text" id="sim_qty_m2" value="100" />
                 </div>
-                <div class="form-column">
-                    <div class="field-row">
-                        <label>Distance (km)</label>
-                        <input type="text" name="distance" value="450" />
-                    </div>
-                </div>
-                <div class="form-column">
-                    <div class="field-row">
-                        <label>Origin</label>
-                        <input type="text" name="origin" value="Szczecinek, 78-400" />
-                    </div>
-                </div>
-                <div class="form-column">
-                    <div class="field-row">
-                        <label>Destination</label>
-                        <input type="text" name="destination" value="Opole, 46-081" />
-                    </div>
+                <div class="field-row" style="display: flex; align-items: flex-end;">
+                    <button type="button" class="action-secondary-custom" id="load_config_btn" style="width: 100%;">
+                        <span>Load Config from Rules</span>
+                    </button>
                 </div>
             </div>
-            <div style="text-align: right; margin-top: 10px;">
-                <button type="button" class="action-primary-custom" id="test_quote_btn">
-                    <span>Test Quote Logic</span>
-                </button>
-            </div>
-        </form>
-
-        <div id="quote_result_container" style="display: none; margin-top: 15px;">
-            <div class="result-box">
-                <div id="quote_result_content"></div>
-            </div>
+            <div id="rule_match_info" style="margin-top: 10px; font-weight: bold; color: #0056b3;"></div>
         </div>
-    </div>
-
-    <!-- API Endpoint Test Form (Raw) -->
-    <div class="trans-eu-section">
-        <h2>API Endpoint Test (Raw Request)</h2>
 
         <form id="api_test_form">
             <div class="form-grid">
@@ -375,7 +345,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Total Length (m)</label>
-                        <input type="text" name="total_length" value="<?= $block->escapeHtmlAttr($formData['total_length']) ?>" />
+                        <input type="text" name="total_length" id="total_length_input" value="<?= $block->escapeHtmlAttr($formData['total_length']) ?>" />
                     </div>
                 </div>
 
@@ -384,7 +354,7 @@ $formatExpiration = function($expiresAt) {
                     <h3>Vehicle Requirements</h3>
                     <div class="field-row">
                         <label>Body (Multiselect)</label>
-                        <select name="vehicle_body[]" multiple size="5">
+                        <select name="vehicle_body[]" id="vehicle_body_select" multiple size="5">
                             <?php
                                 $selectedBodies = is_array($formData['vehicle_body']) ? $formData['vehicle_body'] : explode(',', $formData['vehicle_body']);
                             ?>
@@ -396,7 +366,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Size ID (Multiselect)</label>
-                        <select name="vehicle_size[]" multiple size="5">
+                        <select name="vehicle_size[]" id="vehicle_size_select" multiple size="5">
                             <?php
                                 $selectedSizes = is_array($formData['vehicle_size']) ? $formData['vehicle_size'] : explode(',', $formData['vehicle_size']);
                             ?>
@@ -408,7 +378,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Freight Type</label>
-                        <select name="freight_type">
+                        <select name="freight_type" id="freight_type_select">
                             <?php foreach ($block->getFreightTypeOptions() as $option): ?>
                                 <option value="<?= $option['value'] ?>" <?= $formData['freight_type'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
                             <?php endforeach; ?>
@@ -421,7 +391,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Other Requirements</label>
-                        <select name="other_requirements[]" multiple size="5">
+                        <select name="other_requirements[]" id="other_req_select" multiple size="5">
                             <?php
                                 $selectedOther = is_array($formData['other_requirements']) ? $formData['other_requirements'] : [];
                             ?>
@@ -447,7 +417,7 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Type</label>
-                        <select name="load_type">
+                        <select name="load_type" id="load_type_select">
                             <?php foreach ($block->getLoadTypeOptions() as $option): ?>
                                 <option value="<?= $option['value'] ?>" <?= $formData['load_type'] == $option['value'] ? 'selected' : '' ?>><?= $option['label'] ?></option>
                             <?php endforeach; ?>
@@ -460,11 +430,11 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Length (m)</label>
-                        <input type="text" name="load_length" value="<?= $block->escapeHtmlAttr($formData['load_length']) ?>" />
+                        <input type="text" name="load_length" id="load_length_input" value="<?= $block->escapeHtmlAttr($formData['load_length']) ?>" />
                     </div>
                     <div class="field-row">
                         <label>Width (m)</label>
-                        <input type="text" name="load_width" value="<?= $block->escapeHtmlAttr($formData['load_width']) ?>" />
+                        <input type="text" name="load_width" id="load_width_input" value="<?= $block->escapeHtmlAttr($formData['load_width']) ?>" />
                     </div>
                 </div>
 
@@ -612,12 +582,20 @@ $formatExpiration = function($expiresAt) {
             });
         });
 
-        // Auto-calculate capacity and amount based on m2
+        // Sync Qty inputs
+        $('#sim_qty_m2').on('input', function() {
+            $('#qty_m2_input').val($(this).val()).trigger('input');
+        });
         $('#qty_m2_input').on('input', function() {
+            $('#sim_qty_m2').val($(this).val());
+
+            // Auto-calculate capacity and amount based on m2
             var m2 = parseFloat($(this).val());
             if (!isNaN(m2) && m2 > 0) {
-                // 1 pallet = 50 m2
-                var pallets = Math.ceil(m2 / 50);
+                // 1 pallet = 50 m2 (This is just a rough estimate for UI, real logic is in backend)
+                // But wait, backend logic is complex. Let's rely on "Load Config" button for accurate values.
+                // For now, simple estimation:
+                var pallets = Math.ceil(m2 / 35); // Using 35 as default from config
                 $('#load_amount_input').val(pallets);
 
                 // 1 m2 = 25 kg => tons
@@ -628,124 +606,50 @@ $formatExpiration = function($expiresAt) {
             }
         });
 
-        // Test Quote Logic
-        $('#test_quote_btn').click(function() {
-            var form = $('#quote_test_form');
-            var resultContainer = $('#quote_result_container');
-            var resultContent = $('#quote_result_content');
+        // Load Config from Rules Logic
+        $('#load_config_btn').click(function() {
+            var carrier = $('#sim_carrier_code').val();
+            var qty = $('#sim_qty_m2').val();
+            var infoDiv = $('#rule_match_info');
 
-            resultContainer.hide();
-            resultContent.html('Loading...');
+            infoDiv.text('Loading configuration...');
 
             $.ajax({
                 url: '<?= $block->getUrl('gardenlawn_transeu/test/testQuote') ?>',
                 type: 'POST',
-                data: form.serialize() + '&form_key=' + FORM_KEY,
+                data: { action: 'simulate', carrier_code: carrier, qty_m2: qty, form_key: FORM_KEY },
                 dataType: 'json',
                 success: function(response) {
-                    if (response.debug_info) {
-                        resultContent.html(formatDebugInfo(response.debug_info, response.price));
+                    if (response.success) {
+                        var p = response.params;
+
+                        // Fill form fields
+                        $('#vehicle_size_select').val(p.vehicle_size_id);
+                        $('#vehicle_body_select').val(p.vehicle_bodies);
+                        $('#freight_type_select').val(p.freight_type);
+                        $('#capacity_input').val(p.capacity_tons);
+                        $('#load_amount_input').val(p.load_amount);
+                        $('#load_type_select').val(p.load_type);
+                        $('#load_length_input').val(p.load_length);
+                        $('#load_width_input').val(p.load_width);
+                        $('#total_length_input').val(p.total_ldm);
+                        $('#other_req_select').val(p.other_requirements);
+
+                        // Show matched rule info
+                        if (response.matched_rule) {
+                            infoDiv.html('<span style="color:green">✔ Matched Rule:</span> Max Pallets ' + response.matched_rule.max_pallets);
+                        } else {
+                            infoDiv.html('<span style="color:orange">⚠ No specific rule matched (Using fallback)</span>');
+                        }
                     } else {
-                        resultContent.html('<pre>' + JSON.stringify(response, null, 4) + '</pre>');
+                        infoDiv.html('<span style="color:red">Error: ' + response.message + '</span>');
                     }
-                    resultContainer.slideDown();
                 },
                 error: function() {
-                    resultContent.html('<span style="color:red">Connection Error</span>');
-                    resultContainer.slideDown();
+                    infoDiv.html('<span style="color:red">Connection Error</span>');
                 }
             });
         });
-
-        function formatDebugInfo(info, price) {
-            var html = '';
-
-            // 1. Summary
-            html += '<div class="debug-section">';
-            html += '<span class="debug-title">Summary</span>';
-            html += '<table class="debug-table">';
-            html += '<tr><td>Carrier</td><td>' + info.carrier + '</td></tr>';
-            html += '<tr><td>Input</td><td>Qty: ' + info.qty_m2 + ' m², Distance: ' + info.distance_km + ' km</td></tr>';
-            if (price) {
-                html += '<tr><td><strong>Final Price</strong></td><td><strong style="color:#28a745; font-size:1.2em;">' + price + '</strong></td></tr>';
-            } else {
-                html += '<tr><td><strong>Final Price</strong></td><td><strong style="color:#dc3545;">NULL (Failed)</strong></td></tr>';
-            }
-            html += '</table>';
-            html += '</div>';
-
-            // 2. Rules & Steps
-            html += '<div class="debug-section">';
-            html += '<span class="debug-title">Logic Trace</span>';
-            html += '<ul class="debug-steps">';
-            if (info.steps) {
-                info.steps.forEach(function(step) {
-                    html += '<li>' + step + '</li>';
-                });
-            }
-            html += '</ul>';
-            html += '</div>';
-
-            // 3. Matched Rule
-            if (info.matched_rule) {
-                html += '<div class="debug-section">';
-                html += '<span class="debug-title">Matched Rule Configuration</span>';
-                html += '<table class="debug-table">';
-                html += '<tr><td>Max Pallets</td><td>' + info.matched_rule.max_pallets + '</td></tr>';
-                html += '<tr><td>Vehicle Size</td><td>' + info.matched_rule.vehicle_size + '</td></tr>';
-                html += '<tr><td>Vehicle Body</td><td>' + info.matched_rule.vehicle_bodies + '</td></tr>';
-                html += '<tr><td>Freight Type</td><td>' + (info.matched_rule.freight_type || '-') + '</td></tr>';
-                html += '<tr><td>Pallet Dims</td><td>' + (info.matched_rule.pallet_length || '-') + ' x ' + (info.matched_rule.pallet_width || '-') + '</td></tr>';
-                html += '</table>';
-                html += '</div>';
-            }
-
-            // 4. Calculated Parameters
-            if (info.vehicle_params && info.load_params) {
-                html += '<div class="debug-section">';
-                html += '<span class="debug-title">Calculated Parameters (Sent to API)</span>';
-                html += '<table class="debug-table">';
-                html += '<tr><td>Vehicle Size ID</td><td>' + info.vehicle_params.size_id + '</td></tr>';
-                html += '<tr><td>Freight Type</td><td>' + info.vehicle_params.freight_type + '</td></tr>';
-                html += '<tr><td>Capacity</td><td>' + info.vehicle_params.capacity_tons + ' Tons</td></tr>';
-                html += '<tr><td>Load</td><td>' + info.load_params.pallets_count + ' pallets (' + info.load_params.pallet_dims + ')</td></tr>';
-                html += '<tr><td>Total LDM</td><td>' + info.load_params.total_ldm + '</td></tr>';
-                html += '<tr><td>Total Weight</td><td>' + info.load_params.total_weight_kg + ' kg</td></tr>';
-                if (info.coordinates) {
-                    html += '<tr><td>Origin Coords</td><td>' + (info.coordinates.origin ? info.coordinates.origin.lat + ',' + info.coordinates.origin.lng : '0,0') + '</td></tr>';
-                    html += '<tr><td>Dest Coords</td><td>' + (info.coordinates.dest ? info.coordinates.dest.lat + ',' + info.coordinates.dest.lng : '0,0') + '</td></tr>';
-                }
-                html += '</table>';
-                html += '</div>';
-            }
-
-            // 5. Price Calculation
-            if (info.price_calculation) {
-                html += '<div class="debug-section">';
-                html += '<span class="debug-title">Price Conversion</span>';
-                html += '<table class="debug-table">';
-                html += '<tr><td>Base Price (EUR)</td><td>' + info.price_calculation.base_eur + '</td></tr>';
-                html += '<tr><td>Factor</td><td>x ' + info.price_calculation.factor + '</td></tr>';
-                html += '<tr><td>Factored (EUR)</td><td>' + info.price_calculation.factored_eur + '</td></tr>';
-                html += '<tr><td>Converted</td><td>' + info.price_calculation.final_store_currency + '</td></tr>';
-                html += '</table>';
-                html += '</div>';
-            }
-
-            // 6. Raw JSONs (Collapsible)
-            html += '<div class="debug-section">';
-            html += '<span class="debug-title">Raw Data</span>';
-
-            html += '<div><span class="json-toggle" onclick="$(this).next().toggle()">Show Request Payload</span>';
-            html += '<div class="json-content"><pre>' + JSON.stringify(info.request_payload, null, 2) + '</pre></div></div>';
-
-            html += '<div style="margin-top:5px;"><span class="json-toggle" onclick="$(this).next().toggle()">Show API Response</span>';
-            html += '<div class="json-content"><pre>' + JSON.stringify(info.api_response, null, 2) + '</pre></div></div>';
-
-            html += '</div>';
-
-            return html;
-        }
 
         // Price Prediction Logic
         $('#predict_price_btn').click(function() {
@@ -769,7 +673,15 @@ $formatExpiration = function($expiresAt) {
                 success: function(response) {
                     if (response.success) {
                         statusMsg.html('<span style="color: green;">SUCCESS</span>');
-                        resultPre.text(JSON.stringify(response.response, null, 4));
+
+                        // Format response nicely
+                        var html = '';
+                        if (response.response.prediction_pln) {
+                            html += '<strong>Price: ' + response.response.prediction_pln + ' PLN</strong> (Rate: ' + response.response.rate_eur_pln + ')<br>';
+                        }
+                        html += JSON.stringify(response.response, null, 4);
+
+                        resultPre.html(html);
                         resultContainer.find('.result-box').removeClass('result-error').addClass('result-success');
                     } else {
                         statusMsg.html('<span style="color: red;">FAILED: ' + response.message + '</span>');

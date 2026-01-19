@@ -92,21 +92,23 @@ class PredictPrice extends Action
             $requestModel->setSpots($spots);
 
             // Handle vehicle_body which can be array or string
-            $vehicleBodies = $params['vehicle_body'];
+            $vehicleBodies = $params['vehicle_body'] ?? [];
             if (!is_array($vehicleBodies)) {
                 $vehicleBodies = [$vehicleBodies];
             }
             $vehicleBodies = array_filter($vehicleBodies);
 
             // Handle vehicle_size with mapping logic
-            $vehicleSizes = $params['vehicle_size'];
+            $vehicleSizes = $params['vehicle_size'] ?? [];
             if (!is_array($vehicleSizes)) {
                 $vehicleSizes = [$vehicleSizes];
             }
+            $vehicleSizes = array_filter($vehicleSizes);
+
             $vehicleSize = $this->resolveVehicleSizeId($vehicleSizes);
 
-            if (!$vehicleSize) {
-                // Fallback if resolution fails (e.g. empty)
+            if (!$vehicleSize && !empty($vehicleSizes)) {
+                // Fallback if resolution fails but we have sizes (e.g. custom single value)
                 $vehicleSize = reset($vehicleSizes);
             }
 
