@@ -98,10 +98,16 @@ class PredictPrice extends Action
             }
             $vehicleBodies = array_filter($vehicleBodies);
 
-            // Handle vehicle_size which MUST be a single string for this API
-            $vehicleSize = $params['vehicle_size'];
-            if (is_array($vehicleSize)) {
-                $vehicleSize = reset($vehicleSize); // Take first one
+            // Handle vehicle_size with mapping logic
+            $vehicleSizes = $params['vehicle_size'];
+            if (!is_array($vehicleSizes)) {
+                $vehicleSizes = [$vehicleSizes];
+            }
+            $vehicleSize = $this->resolveVehicleSizeId($vehicleSizes);
+
+            if (!$vehicleSize) {
+                // Fallback if resolution fails (e.g. empty)
+                $vehicleSize = reset($vehicleSizes);
             }
 
             // Handle other_requirements
@@ -190,6 +196,39 @@ class PredictPrice extends Action
                 'request_payload' => isset($requestModel) ? $requestModel->toArray() : []
             ]);
         }
+    }
+
+    protected function resolveVehicleSizeId(array $sizes)
+    {
+        $sizes = array_map('trim', $sizes);
+        $sizes = array_filter(array_unique($sizes));
+
+        $hasLorry = in_array('3_lorry', $sizes);
+        $hasSolo = in_array('5_solo', $sizes);
+        $hasDouble = in_array('2_double_trailer', $sizes);
+
+        if ($hasLorry && $hasSolo && $hasDouble) {
+            return '14_double_trailer_lorry_solo';
+        }
+        if ($hasLorry && $hasSolo) {
+            return '8_lorry_solo';
+        }
+        if ($hasLorry && $hasDouble) {
+            return '7_double_trailer_lorry';
+        }
+        if ($hasSolo && $hasDouble) {
+            return '11_double_trailer_solo';
+        }
+        if ($hasLorry) return '3_lorry';
+        if ($hasSolo) return '5_solo';
+        if ($hasDouble) return '2_double_trailer';
+
+        // Fallback: if only one size is selected and it's not one of the above
+        if (count($sizes) === 1) {
+            return reset($sizes);
+        }
+
+        return null;
     }
 
     protected function _isAllowed()
