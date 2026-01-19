@@ -8,6 +8,8 @@ use GardenLawn\TransEu\Model\ApiService;
 use GardenLawn\TransEu\Model\Data\PricePredictionRequestFactory;
 use Magento\Directory\Model\CurrencyFactory;
 use Magento\Store\Model\StoreManagerInterface;
+use Magento\Tax\Model\Calculation;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 
 class PredictPrice extends Action
 {
@@ -16,6 +18,8 @@ class PredictPrice extends Action
     protected $requestFactory;
     protected $currencyFactory;
     protected $storeManager;
+    protected $taxCalculation;
+    protected $scopeConfig;
 
     public function __construct(
         Context $context,
@@ -23,7 +27,9 @@ class PredictPrice extends Action
         ApiService $apiService,
         PricePredictionRequestFactory $requestFactory,
         CurrencyFactory $currencyFactory,
-        StoreManagerInterface $storeManager
+        StoreManagerInterface $storeManager,
+        Calculation $taxCalculation,
+        ScopeConfigInterface $scopeConfig
     ) {
         parent::__construct($context);
         $this->resultJsonFactory = $resultJsonFactory;
@@ -31,6 +37,8 @@ class PredictPrice extends Action
         $this->requestFactory = $requestFactory;
         $this->currencyFactory = $currencyFactory;
         $this->storeManager = $storeManager;
+        $this->taxCalculation = $taxCalculation;
+        $this->scopeConfig = $scopeConfig;
     }
 
     public function execute()
@@ -70,8 +78,8 @@ class PredictPrice extends Action
                     "place" => [
                         "address" => ["locality" => $params['source_city'], "postal_code" => $params['source_zip']],
                         "coordinates" => [
-                            "latitude" => round((float)$params['source_lat'], 7),
-                            "longitude" => round((float)$params['source_lon'], 7)
+                            "latitude" => round((float)$params['source_lat'], 6),
+                            "longitude" => round((float)$params['source_lon'], 6)
                         ],
                         "country" => "PL"
                     ],
@@ -86,8 +94,8 @@ class PredictPrice extends Action
                     "place" => [
                         "address" => ["locality" => $params['dest_city'], "postal_code" => $params['dest_zip']],
                         "coordinates" => [
-                            "latitude" => round((float)$params['dest_lat'], 7),
-                            "longitude" => round((float)$params['dest_lon'], 7)
+                            "latitude" => round((float)$params['dest_lat'], 6),
+                            "longitude" => round((float)$params['dest_lon'], 6)
                         ],
                         "country" => "PL"
                     ],
@@ -151,6 +159,7 @@ class PredictPrice extends Action
 
                 try {
                     $baseCurrencyCode = $this->storeManager->getStore()->getBaseCurrencyCode();
+                    $rateEurToPln = 0;
 
                     if ($baseCurrencyCode == 'PLN') {
                         $currencyPln = $this->currencyFactory->create()->load('PLN');
@@ -158,35 +167,43 @@ class PredictPrice extends Action
 
                         if ($ratePlnToEur && $ratePlnToEur > 0) {
                             $rateEurToPln = 1 / $ratePlnToEur;
-                            $pricePln = $priceEur * $rateEurToPln;
-
-                            $response['prediction_pln'] = round($pricePln, 2);
-                            $response['rate_eur_pln'] = round($rateEurToPln, 4);
-                            $response['currency_converted'] = 'PLN';
-                        } else {
-                            $currencyEur = $this->currencyFactory->create()->load('EUR');
-                            $rateEurToPln = $currencyEur->getRate('PLN');
-
-                            if ($rateEurToPln) {
-                                $pricePln = $priceEur * $rateEurToPln;
-                                $response['prediction_pln'] = round($pricePln, 2);
-                                $response['rate_eur_pln'] = $rateEurToPln;
-                                $response['currency_converted'] = 'PLN';
-                            } else {
-                                $response['conversion_error'] = 'Rate EUR->PLN or PLN->EUR not found.';
-                            }
                         }
                     } else {
                         $currencyEur = $this->currencyFactory->create()->load('EUR');
-                        $rate = $currencyEur->getRate('PLN');
-                        if ($rate) {
-                            $pricePln = $priceEur * $rate;
-                            $response['prediction_pln'] = round($pricePln, 2);
-                            $response['rate_eur_pln'] = $rate;
-                            $response['currency_converted'] = 'PLN';
-                        } else {
-                            $response['conversion_error'] = 'Rate EUR->PLN not found.';
+                        $rateEurToPln = $currencyEur->getRate('PLN');
+                    }
+
+                    if ($rateEurToPln > 0) {
+                        $basePricePln = $priceEur * $rateEurToPln;
+
+                        // Calculate Tax and Rounding
+                        $taxClassId = $this->scopeConfig->getValue('tax/classes/shipping_tax_class');
+                        $taxRate = 0;
+
+                        if ($taxClassId) {
+                            $request = $this->taxCalculation->getRateRequest(null, null, null, $this->storeManager->getStore());
+                            $request->setProductClassId($taxClassId);
+                            $taxRate = $this->taxCalculation->getRate($request);
                         }
+
+                        $grossPrice = $basePricePln * (1 + $taxRate / 100);
+                        $grossPriceRounded = ceil($grossPrice);
+                        $finalNetPrice = $grossPriceRounded / (1 + $taxRate / 100);
+
+                        $response['prediction_pln'] = round($finalNetPrice, 2);
+                        $response['rate_eur_pln'] = round($rateEurToPln, 4);
+                        $response['currency_converted'] = 'PLN';
+
+                        $response['price_details'] = [
+                            'base_eur' => $priceEur,
+                            'base_pln' => $basePricePln,
+                            'tax_rate' => $taxRate,
+                            'gross_calculated' => $grossPrice,
+                            'gross_rounded' => $grossPriceRounded,
+                            'final_net' => $finalNetPrice
+                        ];
+                    } else {
+                        $response['conversion_error'] = 'Rate EUR->PLN not found.';
                     }
 
                 } catch (\Exception $e) {

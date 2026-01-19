@@ -660,7 +660,15 @@ $defaultTime = $now->format('H:i');
             html += '<div class="debug-section">';
             html += '<span class="debug-title">Price Prediction</span>';
             html += '<table class="debug-table">';
-            if (resp.prediction_pln) {
+
+            if (resp.price_details) {
+                var pd = resp.price_details;
+                html += '<tr><td><strong>Final Price (Netto)</strong></td><td><strong style="color:#28a745; font-size:1.4em;">' + pd.final_net.toFixed(2) + ' PLN</strong></td></tr>';
+                html += '<tr><td>Tax Rate</td><td>' + pd.tax_rate + '%</td></tr>';
+                html += '<tr><td>Gross Price (Rounded)</td><td>' + pd.gross_rounded + ' PLN</td></tr>';
+                html += '<tr><td>Base Price (EUR)</td><td>' + pd.base_eur + ' EUR</td></tr>';
+                html += '<tr><td>Exchange Rate</td><td>' + resp.rate_eur_pln + '</td></tr>';
+            } else if (resp.prediction_pln) {
                 html += '<tr><td><strong>Final Price (Netto)</strong></td><td><strong style="color:#28a745; font-size:1.4em;">' + resp.prediction_pln + ' PLN</strong></td></tr>';
                 html += '<tr><td>Base Price (EUR)</td><td>' + (resp.prediction ? resp.prediction[0] : '-') + ' EUR</td></tr>';
                 html += '<tr><td>Exchange Rate</td><td>' + resp.rate_eur_pln + '</td></tr>';
@@ -701,10 +709,10 @@ $defaultTime = $now->format('H:i');
             html += '<div class="debug-section">';
             html += '<span class="debug-title">Raw Data</span>';
 
-            html += '<div><span class="json-toggle" onclick="$(this).next().toggle()">Show Request Payload</span>';
+            html += '<div><span class="json-toggle" onclick="jQuery(this).next().toggle()">Show Request Payload</span>';
             html += '<div class="json-content"><pre>' + JSON.stringify(payload, null, 2) + '</pre></div></div>';
 
-            html += '<div style="margin-top:5px;"><span class="json-toggle" onclick="$(this).next().toggle()">Show API Response</span>';
+            html += '<div style="margin-top:5px;"><span class="json-toggle" onclick="jQuery(this).next().toggle()">Show API Response</span>';
             html += '<div class="json-content"><pre>' + JSON.stringify(resp, null, 2) + '</pre></div></div>';
 
             html += '</div>';
