@@ -106,6 +106,11 @@ $formatExpiration = function($expiresAt) {
         border-color: #eb5202;
         box-shadow: 0 0 3px rgba(235, 82, 2, 0.3);
     }
+    .field-row input[readonly] {
+        background-color: #e9ecef;
+        color: #495057;
+        cursor: not-allowed;
+    }
 
     /* Buttons */
     .action-primary-custom {
@@ -152,6 +157,19 @@ $formatExpiration = function($expiresAt) {
         font-family: Consolas, Monaco, 'Andale Mono', monospace;
         font-size: 1.2rem;
     }
+
+    /* Debug Info Styles */
+    .debug-section { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .debug-section:last-child { border-bottom: none; }
+    .debug-title { font-weight: bold; color: #555; margin-bottom: 5px; display: block; font-size: 1.1em; }
+    .debug-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    .debug-table td { padding: 4px 8px; border: 1px solid #ddd; }
+    .debug-table td:first-child { font-weight: 600; background: #f9f9f9; width: 30%; }
+    .debug-steps { list-style: none; padding: 0; margin: 0; }
+    .debug-steps li { padding: 3px 0; border-bottom: 1px dashed #eee; }
+    .debug-steps li:last-child { border-bottom: none; }
+    .json-toggle { cursor: pointer; color: #007bdb; text-decoration: underline; font-size: 0.9em; }
+    .json-content { display: none; margin-top: 5px; }
 
     /* Token Manager */
     .token-manager-grid {
@@ -328,7 +346,7 @@ $formatExpiration = function($expiresAt) {
 
         <div id="quote_result_container" style="display: none; margin-top: 15px;">
             <div class="result-box">
-                <pre id="quote_result_pre"></pre>
+                <div id="quote_result_content"></div>
             </div>
         </div>
     </div>
@@ -398,7 +416,8 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Capacity (Tons)</label>
-                        <input type="text" name="capacity" id="capacity_input" value="<?= $block->escapeHtmlAttr($formData['capacity']) ?>" />
+                        <input type="text" name="capacity" id="capacity_input" value="<?= $block->escapeHtmlAttr($formData['capacity']) ?>" readonly />
+                        <small>Auto-calculated from m²</small>
                     </div>
                     <div class="field-row">
                         <label>Other Requirements</label>
@@ -436,7 +455,8 @@ $formatExpiration = function($expiresAt) {
                     </div>
                     <div class="field-row">
                         <label>Amount (Pallets)</label>
-                        <input type="text" name="load_amount" id="load_amount_input" value="<?= $block->escapeHtmlAttr($formData['load_amount']) ?>" />
+                        <input type="text" name="load_amount" id="load_amount_input" value="<?= $block->escapeHtmlAttr($formData['load_amount']) ?>" readonly />
+                        <small>Auto-calculated from m²</small>
                     </div>
                     <div class="field-row">
                         <label>Length (m)</label>
@@ -612,9 +632,10 @@ $formatExpiration = function($expiresAt) {
         $('#test_quote_btn').click(function() {
             var form = $('#quote_test_form');
             var resultContainer = $('#quote_result_container');
-            var resultPre = $('#quote_result_pre');
+            var resultContent = $('#quote_result_content');
 
             resultContainer.hide();
+            resultContent.html('Loading...');
 
             $.ajax({
                 url: '<?= $block->getUrl('gardenlawn_transeu/test/testQuote') ?>',
@@ -622,15 +643,109 @@ $formatExpiration = function($expiresAt) {
                 data: form.serialize() + '&form_key=' + FORM_KEY,
                 dataType: 'json',
                 success: function(response) {
-                    resultPre.text(JSON.stringify(response, null, 4));
+                    if (response.debug_info) {
+                        resultContent.html(formatDebugInfo(response.debug_info, response.price));
+                    } else {
+                        resultContent.html('<pre>' + JSON.stringify(response, null, 4) + '</pre>');
+                    }
                     resultContainer.slideDown();
                 },
                 error: function() {
-                    resultPre.text('Connection Error');
+                    resultContent.html('<span style="color:red">Connection Error</span>');
                     resultContainer.slideDown();
                 }
             });
         });
+
+        function formatDebugInfo(info, price) {
+            var html = '';
+
+            // 1. Summary
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Summary</span>';
+            html += '<table class="debug-table">';
+            html += '<tr><td>Carrier</td><td>' + info.carrier + '</td></tr>';
+            html += '<tr><td>Input</td><td>Qty: ' + info.qty_m2 + ' m², Distance: ' + info.distance_km + ' km</td></tr>';
+            if (price) {
+                html += '<tr><td><strong>Final Price</strong></td><td><strong style="color:#28a745; font-size:1.2em;">' + price + '</strong></td></tr>';
+            } else {
+                html += '<tr><td><strong>Final Price</strong></td><td><strong style="color:#dc3545;">NULL (Failed)</strong></td></tr>';
+            }
+            html += '</table>';
+            html += '</div>';
+
+            // 2. Rules & Steps
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Logic Trace</span>';
+            html += '<ul class="debug-steps">';
+            if (info.steps) {
+                info.steps.forEach(function(step) {
+                    html += '<li>' + step + '</li>';
+                });
+            }
+            html += '</ul>';
+            html += '</div>';
+
+            // 3. Matched Rule
+            if (info.matched_rule) {
+                html += '<div class="debug-section">';
+                html += '<span class="debug-title">Matched Rule Configuration</span>';
+                html += '<table class="debug-table">';
+                html += '<tr><td>Max Pallets</td><td>' + info.matched_rule.max_pallets + '</td></tr>';
+                html += '<tr><td>Vehicle Size</td><td>' + info.matched_rule.vehicle_size + '</td></tr>';
+                html += '<tr><td>Vehicle Body</td><td>' + info.matched_rule.vehicle_bodies + '</td></tr>';
+                html += '<tr><td>Freight Type</td><td>' + (info.matched_rule.freight_type || '-') + '</td></tr>';
+                html += '<tr><td>Pallet Dims</td><td>' + (info.matched_rule.pallet_length || '-') + ' x ' + (info.matched_rule.pallet_width || '-') + '</td></tr>';
+                html += '</table>';
+                html += '</div>';
+            }
+
+            // 4. Calculated Parameters
+            if (info.vehicle_params && info.load_params) {
+                html += '<div class="debug-section">';
+                html += '<span class="debug-title">Calculated Parameters (Sent to API)</span>';
+                html += '<table class="debug-table">';
+                html += '<tr><td>Vehicle Size ID</td><td>' + info.vehicle_params.size_id + '</td></tr>';
+                html += '<tr><td>Freight Type</td><td>' + info.vehicle_params.freight_type + '</td></tr>';
+                html += '<tr><td>Capacity</td><td>' + info.vehicle_params.capacity_tons + ' Tons</td></tr>';
+                html += '<tr><td>Load</td><td>' + info.load_params.pallets_count + ' pallets (' + info.load_params.pallet_dims + ')</td></tr>';
+                html += '<tr><td>Total LDM</td><td>' + info.load_params.total_ldm + '</td></tr>';
+                html += '<tr><td>Total Weight</td><td>' + info.load_params.total_weight_kg + ' kg</td></tr>';
+                if (info.coordinates) {
+                    html += '<tr><td>Origin Coords</td><td>' + (info.coordinates.origin ? info.coordinates.origin.lat + ',' + info.coordinates.origin.lng : '0,0') + '</td></tr>';
+                    html += '<tr><td>Dest Coords</td><td>' + (info.coordinates.dest ? info.coordinates.dest.lat + ',' + info.coordinates.dest.lng : '0,0') + '</td></tr>';
+                }
+                html += '</table>';
+                html += '</div>';
+            }
+
+            // 5. Price Calculation
+            if (info.price_calculation) {
+                html += '<div class="debug-section">';
+                html += '<span class="debug-title">Price Conversion</span>';
+                html += '<table class="debug-table">';
+                html += '<tr><td>Base Price (EUR)</td><td>' + info.price_calculation.base_eur + '</td></tr>';
+                html += '<tr><td>Factor</td><td>x ' + info.price_calculation.factor + '</td></tr>';
+                html += '<tr><td>Factored (EUR)</td><td>' + info.price_calculation.factored_eur + '</td></tr>';
+                html += '<tr><td>Converted</td><td>' + info.price_calculation.final_store_currency + '</td></tr>';
+                html += '</table>';
+                html += '</div>';
+            }
+
+            // 6. Raw JSONs (Collapsible)
+            html += '<div class="debug-section">';
+            html += '<span class="debug-title">Raw Data</span>';
+
+            html += '<div><span class="json-toggle" onclick="$(this).next().toggle()">Show Request Payload</span>';
+            html += '<div class="json-content"><pre>' + JSON.stringify(info.request_payload, null, 2) + '</pre></div></div>';
+
+            html += '<div style="margin-top:5px;"><span class="json-toggle" onclick="$(this).next().toggle()">Show API Response</span>';
+            html += '<div class="json-content"><pre>' + JSON.stringify(info.api_response, null, 2) + '</pre></div></div>';
+
+            html += '</div>';
+
+            return html;
+        }
 
         // Price Prediction Logic
         $('#predict_price_btn').click(function() {

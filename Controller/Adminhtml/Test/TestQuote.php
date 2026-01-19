@@ -33,11 +33,6 @@ class TestQuote extends Action
         $qty = (float)($params['qty_m2'] ?? 100.0);
 
         try {
-            // We need to temporarily inject the manual token into AuthService if provided?
-            // TransEuQuoteService uses ApiService which uses AuthService.
-            // AuthService checks config for manual token.
-            // So if manual token is saved in config, it will be used.
-
             $price = $this->quoteService->getPrice(
                 $carrierCode,
                 $origin,
@@ -46,23 +41,28 @@ class TestQuote extends Action
                 $qty
             );
 
+            $debugInfo = $this->quoteService->getDebugInfo();
+
             if ($price !== null) {
                 return $result->setData([
                     'success' => true,
                     'price' => $price,
-                    'message' => "Price calculated successfully: $price"
+                    'message' => "Price calculated successfully: $price",
+                    'debug_info' => $debugInfo
                 ]);
             } else {
                 return $result->setData([
                     'success' => false,
-                    'message' => 'Price calculation returned null (check logs for details, maybe no matching rule or API error).'
+                    'message' => 'Price calculation returned null.',
+                    'debug_info' => $debugInfo
                 ]);
             }
 
         } catch (\Exception $e) {
             return $result->setData([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'debug_info' => isset($this->quoteService) ? $this->quoteService->getDebugInfo() : []
             ]);
         }
     }
