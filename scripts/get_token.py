@@ -126,6 +126,70 @@ def clear_browser_data(driver):
     except Exception as e:
         log(f"Error clearing browser data: {e}")
 
+def handle_mfa(driver):
+    """Handles MFA challenge interactively"""
+    log("MFA Detected! Analyzing page...")
+
+    try:
+        # 1. Trigger Code Sending (Prefer Email)
+        try:
+            # Wait for buttons to be clickable
+            WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "div[data-ctx-id='email'] button"))
+            )
+
+            # Try Email first (as requested)
+            email_btn = driver.find_element(By.CSS_SELECTOR, "div[data-ctx-id='email'] button")
+            email_btn.click()
+            log("Clicked 'Send Email' button.")
+
+        except Exception as e:
+            log(f"Could not click send email button (trying SMS or already sent): {e}")
+            try:
+                sms_btn = driver.find_element(By.CSS_SELECTOR, "div[data-ctx-id='sms'] button")
+                if sms_btn.is_enabled():
+                    sms_btn.click()
+                    log("Clicked 'Send SMS' button (fallback).")
+            except:
+                pass
+
+        # 2. Ask user for code
+        if sys.stdin.isatty():
+            log(">>> MFA CODE REQUIRED <<<")
+            log("Please check your EMAIL (spam folder too).")
+            log("Enter the 6-digit code here when it arrives:")
+            code = input().strip()
+
+            if len(code) == 6 and code.isdigit():
+                # 3. Enter code into 6 inputs
+                for i in range(6):
+                    input_field = driver.find_element(By.NAME, f"otp-input-{i}")
+                    input_field.send_keys(code[i])
+
+                log("Code entered. Clicking confirm...")
+                time.sleep(1)
+
+                # 4. Click Confirm
+                confirm_btn = driver.find_element(By.CSS_SELECTOR, "button[data-ctx='auth-submit']")
+                confirm_btn.click()
+
+                # Wait for redirect
+                WebDriverWait(driver, 30).until(
+                    lambda d: "mfa/auth" not in d.current_url and "platform.trans.eu" in d.current_url
+                )
+                log("MFA Authorized! Redirect detected.")
+                return True
+            else:
+                log("Invalid code format. Must be 6 digits.")
+                return False
+        else:
+            log("MFA Code required but running in non-interactive mode. Cannot proceed.")
+            return False
+
+    except Exception as e:
+        log(f"Error during MFA handling: {e}")
+        return False
+
 def get_token(username, password):
     cleanup_profile_locks(PROFILE_DIR)
 
@@ -164,7 +228,6 @@ def get_token(username, password):
                             log(f"Failed to delete profile: {cleanup_error}")
                     continue
 
-            # If we are here, it's either not a corruption error or the second attempt failed
             return f"Error: Failed to start Chromedriver: {str(e)}"
 
     try:
@@ -203,7 +266,7 @@ def get_token(username, password):
 
         try:
             wait.until(EC.presence_of_element_located((By.NAME, "login")))
-            time.sleep(2) # Increased stability wait
+            time.sleep(5) # INCREASED WAIT: Ensure JS is fully loaded
 
             username_input = driver.find_element(By.NAME, "login")
             driver.execute_script("arguments[0].value = '';", username_input)
@@ -213,10 +276,17 @@ def get_token(username, password):
             driver.execute_script("arguments[0].value = '';", password_input)
             password_input.send_keys(password)
 
-            time.sleep(1)
+            time.sleep(2)
 
             submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-            driver.execute_script("arguments[0].click();", submit_btn)
+
+            # CHANGED: Try normal click first to trigger JS events
+            try:
+                submit_btn.click()
+            except Exception:
+                log("Normal click failed, falling back to JS click...")
+                driver.execute_script("arguments[0].click();", submit_btn)
+
             log("Submitted login form.")
 
         except TimeoutException:
@@ -233,7 +303,6 @@ def get_token(username, password):
             # Try finding form one more time
             try:
                 wait.until(EC.presence_of_element_located((By.NAME, "login")))
-                # ... (would need to repeat login logic, but let's just fail with better error)
                 return "Error: Login form appeared after refresh but script logic ended. Please retry."
             except:
                 return "Error: Login form not found and no valid token present."
@@ -252,9 +321,10 @@ def get_token(username, password):
         except TimeoutException:
             log("Timeout waiting for URL change. Checking for MFA or errors...")
 
+        # MFA Check
         if "mfa/auth" in driver.current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
-            log("MFA Detected!")
-            return "Error: MFA Required. Please run manually to authorize this device."
+            if not handle_mfa(driver):
+                return "Error: MFA Required and failed to resolve."
 
         # 5. Poll for token
         token = wait_for_token(driver, timeout=60)
