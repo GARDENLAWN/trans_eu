@@ -12,11 +12,26 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, SessionNotCreatedException, WebDriverException
 
+# Try importing mysql connector
+try:
+    import mysql.connector
+    MYSQL_AVAILABLE = True
+except ImportError:
+    MYSQL_AVAILABLE = False
+
 # Set HOME to /tmp to avoid permission issues with cache
 os.environ['HOME'] = '/tmp'
 
 # Persistent profile directory
 PROFILE_DIR = "/var/www/html/magento/var/trans_eu_chrome_profile"
+
+# Database Config (Hardcoded from env.php for standalone usage)
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'Ktm450sx-f',
+    'database': 'magento'
+}
 
 # Find chromedriver automatically
 CHROMEDRIVER_PATH = shutil.which("chromedriver")
@@ -54,6 +69,44 @@ def cleanup_profile_locks(profile_path):
 def log(message):
     """Log to stderr for debugging"""
     print(f"[Python] {message}", file=sys.stderr)
+
+def save_token_to_db(token):
+    """Saves the token directly to Magento database"""
+    if not MYSQL_AVAILABLE:
+        log("MySQL connector not found. Skipping DB save.")
+        return False
+
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        path = 'trans_eu/general/manual_token'
+        scope = 'default'
+        scope_id = 0
+
+        # Check if exists
+        check_query = "SELECT config_id FROM core_config_data WHERE path = %s AND scope = %s AND scope_id = %s"
+        cursor.execute(check_query, (path, scope, scope_id))
+        result = cursor.fetchone()
+
+        if result:
+            # Update
+            update_query = "UPDATE core_config_data SET value = %s WHERE config_id = %s"
+            cursor.execute(update_query, (token, result[0]))
+            log(f"Updated existing token in DB (ID: {result[0]})")
+        else:
+            # Insert
+            insert_query = "INSERT INTO core_config_data (scope, scope_id, path, value) VALUES (%s, %s, %s, %s)"
+            cursor.execute(insert_query, (scope, scope_id, path, token))
+            log("Inserted new token into DB")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        log(f"Database Error: {e}")
+        return False
 
 def is_token_valid(token):
     """Checks if JWT token is valid (not expired)"""
@@ -392,6 +445,8 @@ if __name__ == "__main__":
     result_token = get_token(u, p)
 
     if result_token and not result_token.startswith("Error:"):
-        print(json.dumps({"success": True, "token": result_token}))
+        # Try to save to DB
+        saved = save_token_to_db(result_token)
+        print(json.dumps({"success": True, "token": result_token, "saved_to_db": saved}))
     else:
         print(json.dumps({"success": False, "message": result_token}))
