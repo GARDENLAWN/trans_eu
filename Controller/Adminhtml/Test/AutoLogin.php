@@ -37,11 +37,33 @@ class AutoLogin extends Action
     public function execute()
     {
         $result = $this->resultJsonFactory->create();
+        $mfaCode = $this->getRequest()->getParam('mfa_code');
 
         try {
-            $token = $this->tokenProvider->getTokenFromPython();
+            // Call Python script (with optional MFA code)
+            $response = $this->tokenProvider->getTokenFromPython($mfaCode);
 
-            if ($token) {
+            // Case 1: MFA Required
+            if (is_array($response) && isset($response['mfa_required']) && $response['mfa_required']) {
+                return $result->setData([
+                    'success' => false,
+                    'mfa_required' => true,
+                    'message' => 'MFA Code Required. Please check your email/SMS.'
+                ]);
+            }
+
+            // Case 2: Error from Python
+            if (is_array($response) && isset($response['error'])) {
+                return $result->setData([
+                    'success' => false,
+                    'message' => 'Python Error: ' . $response['error']
+                ]);
+            }
+
+            // Case 3: Success (Token returned as string)
+            if ($response && is_string($response)) {
+                $token = $response;
+
                 // Save token
                 $this->configWriter->save(AuthService::XML_PATH_MANUAL_TOKEN, $token);
                 $this->cacheTypeList->cleanType('config');
@@ -52,7 +74,10 @@ class AutoLogin extends Action
                     'message' => 'Token retrieved and saved successfully.',
                     'token' => $token
                 ]);
-            } else {
+            }
+
+            // Case 4: Unknown failure
+            else {
                 return $result->setData([
                     'success' => false,
                     'message' => 'Failed to retrieve token via Python script. Check logs.'

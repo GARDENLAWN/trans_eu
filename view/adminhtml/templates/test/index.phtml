@@ -534,7 +534,7 @@ $defaultTime = $now->format('H:i');
 </div>
 
 <script>
-    require(['jquery'], function($) {
+    require(['jquery', 'Magento_Ui/js/modal/prompt'], function($, prompt) {
         // Save Token Logic
         $('#save_token_btn').click(function() {
             var token = $('#manual_token_input').val();
@@ -564,23 +564,55 @@ $defaultTime = $now->format('H:i');
         // Auto-Login Logic
         $('#auto_login_btn').click(function() {
             var statusSpan = $('#save_status');
-            statusSpan.css('color', 'blue').text('Running Python script... (this may take 20s)');
+            statusSpan.css('color', 'blue').text('Step 1: Logging in & Requesting Code...');
 
-            $.ajax({
-                url: '<?= $block->getUrl('gardenlawn_transeu/test/autoLogin') ?>',
-                type: 'POST',
-                data: { form_key: FORM_KEY },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        statusSpan.css('color', 'green').text('Success! Reloading...');
-                        setTimeout(function() { location.reload(); }, 1000);
-                    } else {
-                        statusSpan.css('color', 'red').text('Error: ' + response.message);
-                    }
-                },
-                error: function() { statusSpan.css('color', 'red').text('Connection error.'); }
-            });
+            // Function to handle login request (with optional MFA code)
+            function performLogin(mfaCode = null) {
+                var data = { form_key: FORM_KEY };
+                if (mfaCode) {
+                    data.mfa_code = mfaCode;
+                    statusSpan.text('Step 2: Submitting Code...');
+                }
+
+                $.ajax({
+                    url: '<?= $block->getUrl('gardenlawn_transeu/test/autoLogin') ?>',
+                    type: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            statusSpan.css('color', 'green').text('Success! Reloading...');
+                            setTimeout(function() { location.reload(); }, 1000);
+                        } else if (response.mfa_required) {
+                            // MFA Required - Show Prompt
+                            statusSpan.css('color', 'orange').text('MFA Code Required (Check Email)');
+
+                            prompt({
+                                title: 'MFA Code Required',
+                                content: 'Please enter the 6-digit code sent to your email:',
+                                actions: {
+                                    confirm: function(code) {
+                                        if (code) {
+                                            performLogin(code);
+                                        } else {
+                                            statusSpan.css('color', 'red').text('Cancelled.');
+                                        }
+                                    },
+                                    cancel: function() {
+                                        statusSpan.css('color', 'red').text('Cancelled.');
+                                    }
+                                }
+                            });
+                        } else {
+                            statusSpan.css('color', 'red').text('Error: ' + response.message);
+                        }
+                    },
+                    error: function() { statusSpan.css('color', 'red').text('Connection error.'); }
+                });
+            }
+
+            // Start process
+            performLogin();
         });
 
         // Sync Qty inputs

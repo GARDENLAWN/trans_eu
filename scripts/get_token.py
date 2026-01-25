@@ -179,8 +179,8 @@ def clear_browser_data(driver):
     except Exception as e:
         log(f"Error clearing browser data: {e}")
 
-def handle_mfa(driver):
-    """Handles MFA challenge interactively"""
+def handle_mfa(driver, mfa_code=None):
+    """Handles MFA challenge interactively or via provided code"""
     log("MFA Detected! Analyzing page...")
 
     try:
@@ -206,12 +206,10 @@ def handle_mfa(driver):
             except:
                 pass
 
-        # 2. Ask user for code
-        if sys.stdin.isatty():
-            log(">>> MFA CODE REQUIRED <<<")
-            log("Please check your EMAIL (spam folder too).")
-            log("Enter the 6-digit code here when it arrives:")
-            code = input().strip()
+        # 2. Check if we have a code to enter
+        if mfa_code:
+            log(f"Using provided MFA code: {mfa_code}")
+            code = str(mfa_code).strip()
 
             if len(code) == 6 and code.isdigit():
                 # 3. Enter code into 6 inputs
@@ -235,15 +233,17 @@ def handle_mfa(driver):
             else:
                 log("Invalid code format. Must be 6 digits.")
                 return False
+
+        # 3. If no code provided, return special status
         else:
-            log("MFA Code required but running in non-interactive mode. Cannot proceed.")
-            return False
+            log("MFA Code required but not provided.")
+            return "MFA_REQUIRED"
 
     except Exception as e:
         log(f"Error during MFA handling: {e}")
         return False
 
-def get_token(username, password):
+def get_token(username, password, mfa_code=None):
     cleanup_profile_locks(PROFILE_DIR)
 
     options = Options()
@@ -376,8 +376,12 @@ def get_token(username, password):
 
         # MFA Check
         if "mfa/auth" in driver.current_url or "Logowanie z nieznanego urządzenia" in driver.page_source:
-            if not handle_mfa(driver):
-                return "Error: MFA Required and failed to resolve."
+            mfa_result = handle_mfa(driver, mfa_code)
+
+            if mfa_result == "MFA_REQUIRED":
+                return "MFA_REQUIRED"
+            elif not mfa_result:
+                return "Error: MFA Failed (Invalid code or timeout)."
 
         # 5. Poll for token
         token = wait_for_token(driver, timeout=60)
@@ -436,15 +440,20 @@ def extract_token(driver):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print(json.dumps({"success": False, "message": "Usage: python get_token.py <username> <password>"}))
+        print(json.dumps({"success": False, "message": "Usage: python get_token.py <username> <password> [mfa_code]"}))
         sys.exit(1)
 
     u = sys.argv[1]
     p = sys.argv[2]
 
-    result_token = get_token(u, p)
+    # Check for optional MFA code argument
+    mfa_code = sys.argv[3] if len(sys.argv) > 3 else None
 
-    if result_token and not result_token.startswith("Error:"):
+    result_token = get_token(u, p, mfa_code)
+
+    if result_token == "MFA_REQUIRED":
+        print(json.dumps({"success": False, "mfa_required": True, "message": "MFA Code Required"}))
+    elif result_token and not result_token.startswith("Error:"):
         # Try to save to DB
         saved = save_token_to_db(result_token)
         print(json.dumps({"success": True, "token": result_token, "saved_to_db": saved}))

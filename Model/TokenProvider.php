@@ -31,7 +31,7 @@ class TokenProvider
         $this->componentRegistrar = $componentRegistrar;
     }
 
-    public function getTokenFromPython()
+    public function getTokenFromPython($mfaCode = null)
     {
         // Get credentials from config
         $username = $this->scopeConfig->getValue(AuthService::XML_PATH_USERNAME);
@@ -61,9 +61,16 @@ class TokenProvider
 
         // Build command with stderr redirection
         // Ensure python3 is in path or use full path
-        $cmd = "python3 " . escapeshellarg($scriptPath) . " " . escapeshellarg($username) . " " . escapeshellarg($password) . " 2>&1";
+        $cmd = "python3 " . escapeshellarg($scriptPath) . " " . escapeshellarg($username) . " " . escapeshellarg($password);
 
-        $this->logger->info("Executing Python script: python3 ... " . escapeshellarg($username) . " [PASSWORD HIDDEN]");
+        // Add MFA code if provided
+        if ($mfaCode) {
+            $cmd .= " " . escapeshellarg($mfaCode);
+        }
+
+        $cmd .= " 2>&1";
+
+        $this->logger->info("Executing Python script: python3 ... " . escapeshellarg($username) . " [PASSWORD HIDDEN]" . ($mfaCode ? " [MFA CODE]" : ""));
 
         $output = shell_exec($cmd);
 
@@ -81,10 +88,16 @@ class TokenProvider
                 $jsonOutput = $matches[0];
                 $result = $this->json->unserialize($jsonOutput);
 
+                // Check for MFA requirement
+                if (isset($result['mfa_required']) && $result['mfa_required']) {
+                    return ['mfa_required' => true];
+                }
+
                 if (isset($result['success']) && $result['success'] && isset($result['token'])) {
                     return $result['token'];
                 } else {
                     $this->logger->error("Python script failed: " . ($result['message'] ?? 'Unknown error'));
+                    return ['error' => $result['message'] ?? 'Unknown error'];
                 }
             } else {
                 $this->logger->error("Python script output is not valid JSON: " . $output);
