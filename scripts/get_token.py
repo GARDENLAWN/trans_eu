@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, SessionNotCreatedException, WebDriverException
 
 # Set HOME to /tmp to avoid permission issues with cache
 os.environ['HOME'] = '/tmp'
@@ -147,9 +147,27 @@ def get_token(username, password):
     service = Service(executable_path=CHROMEDRIVER_PATH)
     driver = None
 
-    try:
-        driver = webdriver.Chrome(service=service, options=options)
+    # Retry logic for driver creation (handles profile corruption)
+    for attempt in range(2):
+        try:
+            driver = webdriver.Chrome(service=service, options=options)
+            break # Success
+        except (SessionNotCreatedException, WebDriverException) as e:
+            if attempt == 0:
+                err_msg = str(e).lower()
+                if "cannot parse internal json template" in err_msg or "profile" in err_msg or "session not created" in err_msg:
+                    log(f"Chrome profile corruption detected ({e}). Deleting profile at {PROFILE_DIR} and retrying...")
+                    if os.path.exists(PROFILE_DIR):
+                        try:
+                            shutil.rmtree(PROFILE_DIR)
+                        except Exception as cleanup_error:
+                            log(f"Failed to delete profile: {cleanup_error}")
+                    continue
 
+            # If we are here, it's either not a corruption error or the second attempt failed
+            return f"Error: Failed to start Chromedriver: {str(e)}"
+
+    try:
         # Stealth mode
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": """
